@@ -1,0 +1,8 @@
+title = "backend gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Template env file contains placeholders only"
+paths = ['''^\.env\.example$''']
