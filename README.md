@@ -33,6 +33,25 @@ cp .env.example .env   # set PORT, MONGODB_URI
 | ------ | ------------- | --------------------------------- |
 | GET    | `/api/health` | Liveness probe — `{ status, db }` |
 
+## Error responses
+
+Every error, including an unmatched route, is JSON with exactly one top-level key:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION",
+    "message": "Validation failed",
+    "fields": { "title": "Enter a title." }
+  }
+}
+```
+
+`fields` appears only for `VALIDATION`. Codes: `VALIDATION`, `BAD_REQUEST` (malformed or oversized JSON),
+`UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `NOT_FOUND`, `USERNAME_TAKEN`, `SERVICE_UNAVAILABLE` (database
+unreachable), `INTERNAL`. Throw `ApiError` for expected failures and use `parseBody(schema, req.body)` to
+validate; unknown errors become a generic 500 with no internals.
+
 ## Layout
 
 ```
@@ -41,6 +60,8 @@ src/
   app.ts                  createApp(deps) — testable Express app
   config/env.ts           the only reader of process.env
   db/mongo.ts             Mongoose connection lifecycle
+  lib/apiError.ts         ApiError(status, code, message, fields?)
+  lib/parseBody.ts        zod body validation -> ApiError VALIDATION
   middleware/errorHandler.ts
   routes/health.ts
 tests/
