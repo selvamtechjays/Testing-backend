@@ -9,7 +9,9 @@ const healthResponse = z.strictObject({
   status: z.literal('ok'),
   db: z.enum(['connected', 'disconnected']),
 });
-const errorResponse = z.strictObject({ error: z.string() });
+const errorResponse = z.strictObject({
+  error: z.strictObject({ code: z.literal('NOT_FOUND'), message: z.string() }),
+});
 
 describe('contract: GET /api/health', () => {
   it('matches the health schema when connected', async () => {

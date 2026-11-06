@@ -15,7 +15,7 @@ describe('GET /api/health', () => {
     const app = createApp({ isDbConnected: () => true });
     const res = await request(app).get('/api/nope');
     expect(res.status).toBe(404);
-    expect(res.body.error).toContain('/api/nope');
+    expect(res.body).toEqual({ error: { code: 'NOT_FOUND', message: 'Not found' } });
   });
 });
 
