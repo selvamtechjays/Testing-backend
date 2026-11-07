@@ -14,6 +14,9 @@ export const MESSAGES = {
   passwordLength: 'Password must be at least 8 characters.',
   passwordCommon: 'That password is too common. Choose a stronger one.',
   usernameTaken: 'That username is already taken. Choose another.',
+  credentialsMissing: 'Enter a username and password.',
+  invalidCredentials: 'Incorrect username or password.',
+  notSignedIn: 'Not signed in.',
 } as const;
 
 // For each field the first failing check supplies the one message (parseBody keeps the first issue per field).
@@ -35,3 +38,15 @@ const password = z
 export const registerSchema = z.object({ username, password });
 
 export type RegisterInput = z.output<typeof registerSchema>;
+
+const loginField = z
+  .string({ error: MESSAGES.credentialsMissing })
+  .min(1, MESSAGES.credentialsMissing);
+
+/** Login body: both fields non-empty strings. The username is lower-cased, never trimmed (BR-1). */
+export const loginSchema = z.object({
+  username: loginField.transform((value) => value.toLowerCase()),
+  password: loginField,
+});
+
+export type LoginInput = z.output<typeof loginSchema>;

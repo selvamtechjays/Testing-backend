@@ -6,10 +6,17 @@ endpoint_id: EP-AUTH-04
 method: GET
 path: /api/auth/me
 match_key: 'GET /api/auth/me'
-status: Proposed
-implementation_state: Planned
-origin: designed
+status: Active
+implementation_state: Implemented
+origin: implemented
 generated_at: 2026-11-06
+design_confidence: Confirmed
+implemented_at: 2026-11-07T07:37:50Z
+implemented_by_commit: a10b022376d046165ef04f1136deb3f92d38d3ce
+implemented_by_task: FEAT-AUTH-02-1
+mapped_from: src/routes/auth.ts
+mapped_from_line: 39
+mapped_from_commit: a10b022376d046165ef04f1136deb3f92d38d3ce
 ---
 
 # Endpoint: Get Current User
@@ -20,7 +27,7 @@ EP-AUTH-04
 
 ## Status
 
-Proposed
+Active
 
 ## Method + Path
 
@@ -83,3 +90,9 @@ Requires a valid session.
 - Feature: FEAT-AUTH-02 (In Scope: blocking access to the task list without a valid session)
 - Business rules: BR-004
 - Data: DATA-001, DATA-002
+- Code: src/routes/auth.ts:39
+- Test: tests/integration/auth-session.test.ts
+
+## Design deviation
+
+- Route lives in `src/routes/auth.ts`; the guard is `createRequireSession({ clock })` in `src/auth/requireSession.ts` (exported from `src/auth/index.ts`), which sets `res.locals.user` and looks sessions up by the SHA-256 of the cookie value (DEC-093).

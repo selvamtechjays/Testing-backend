@@ -6,10 +6,17 @@ endpoint_id: EP-AUTH-03
 method: POST
 path: /api/auth/logout
 match_key: 'POST /api/auth/logout'
-status: Proposed
-implementation_state: Planned
-origin: designed
+status: Active
+implementation_state: Implemented
+origin: implemented
 generated_at: 2026-11-06
+design_confidence: Confirmed
+implemented_at: 2026-11-07T07:37:50Z
+implemented_by_commit: a10b022376d046165ef04f1136deb3f92d38d3ce
+implemented_by_task: FEAT-AUTH-02-1
+mapped_from: src/routes/auth.ts
+mapped_from_line: 34
+mapped_from_commit: a10b022376d046165ef04f1136deb3f92d38d3ce
 ---
 
 # Endpoint: Sign Out
@@ -20,7 +27,7 @@ EP-AUTH-03
 
 ## Status
 
-Proposed
+Active
 
 ## Method + Path
 
@@ -82,3 +89,9 @@ Reads the session cookie but never fails on a missing or expired one.
 - Workflow: WF-001
 - Business rules: BR-023
 - Data: DATA-002
+- Code: src/routes/auth.ts:34
+- Test: tests/integration/auth-session.test.ts
+
+## Design deviation
+
+- Route lives in `src/routes/auth.ts` with logic in `src/services/auth.ts` (`endSession`); the session lookup key is the SHA-256 of the cookie value (DEC-093).
