@@ -33,6 +33,9 @@ cp .env.example .env   # set PORT, MONGODB_URI
 | ------ | -------------------- | ------------------------------------------------------------ |
 | GET    | `/api/health`        | Liveness probe — `{ status, db }`                            |
 | POST   | `/api/auth/register` | Public. Creates an account and signs the user in (see below) |
+| POST   | `/api/auth/login`    | Public. Signs in with username and password (see Sessions)   |
+| POST   | `/api/auth/logout`   | Public. Ends the presented session; always `204`             |
+| GET    | `/api/auth/me`       | Signed-in only. Returns `{ user: { id, username } }`         |
 
 ## Error responses
 
@@ -90,3 +93,20 @@ creates no user, session or cookie.
 - **Sessions:** `sessions` collection, SHA-256 hex of the 32-random-byte cookie value as `_id` (the raw token lives only in the cookie), `expiresAt` one day after
   creation with a TTL index. `server.ts` awaits `User.init()` and `Session.init()` so the unique and TTL indexes exist
   before the first request.
+
+## Sign in, sign out and the session guard
+
+- **Lifetime:** a session lasts one day from sign-in, fixed at creation. Activity never extends it and there is no
+  Remember me. The cookie (`sid`: HttpOnly, SameSite=Lax, Path `/`, `Secure` in production) has no Max-Age or
+  Expires, so the browser drops it when it closes. Behind a proxy, set Express `trust proxy` so `Secure` survives.
+- **`POST /api/auth/login`:** `{ "username", "password" }`; the username is matched lower-cased and never trimmed.
+  Success is `200 { "user": { "id", "username" } }` with a new session and cookie (a presented cookie is ignored;
+  the user's other sessions stay valid). An unknown username and a wrong password return the same `401
+INVALID_CREDENTIALS` body, and both run a scrypt comparison so timing does not tell them apart. There is no
+  lockout, attempt counter or rate limit (accepted for a closed test).
+- **`POST /api/auth/logout`:** deletes only the presented session and clears the cookie; always `204`, including
+  for a missing, unknown or expired session.
+- **`requireSession`** (`src/auth/index.ts`): protect a route with `createRequireSession({ clock })`. It hashes the
+  cookie value, finds the session, treats `expiresAt <= now` as ended (and deletes the row), loads the user and
+  sets `res.locals.user = { id, username }`. Every refusal is `401 UNAUTHENTICATED` "Not signed in.". The
+  frontend reads any such 401 as the session having ended.
