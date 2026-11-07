@@ -1,8 +1,10 @@
 // tier: integration
 // requires: mongodb-memory-server (in-process, started by tests/integration/globalSetup.ts)
+import { createHash } from 'node:crypto';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { hashSessionId } from '../../src/auth/sessions.js';
 import { Session } from '../../src/models/Session.js';
 import { User } from '../../src/models/User.js';
 import { expectMatchesSchema } from '../support/contract.js';
@@ -58,12 +60,19 @@ describe('POST /api/auth/register against a real database', () => {
     expect(cookie).toContain('; Secure');
   });
 
-  it('stores a session keyed by the cookie value that expires exactly one day later', async () => {
+  it('stores a session keyed by the SHA-256 of the cookie value that expires exactly one day later', async () => {
     const now = new Date('2026-03-01T10:00:00.000Z');
     const app = createTestApp({ clock: () => now });
     const res = await register(registerRequest, app);
     const sessionId = /sid=([0-9a-f]{64})/.exec(String(res.headers['set-cookie']))?.[1];
-    const session = await Session.findById(sessionId).lean();
+    expect(await Session.findById(sessionId).lean()).toBeNull();
+    const session = await Session.findById(
+      createHash('sha256')
+        .update(sessionId ?? '')
+        .digest('hex'),
+    ).lean();
+    expect(session?._id).toBe(hashSessionId(sessionId ?? ''));
+    expect(session?._id).not.toBe(sessionId);
     expect(session?.userId.toString()).toBe(res.body.user.id);
     expect(session?.createdAt).toEqual(now);
     expect(session?.expiresAt.getTime()).toBe(now.getTime() + ONE_DAY_MS);
@@ -94,9 +103,16 @@ describe('POST /api/auth/register against a real database', () => {
   });
 
   it('creates no list, task or other collection (BR-5)', async () => {
+    // Other test files share this database and leave collections of their own, so compare before and after.
+    const listNames = async (): Promise<string[]> =>
+      ((await mongoose.connection.db?.listCollections().toArray()) ?? []).map((c) => c.name);
+    const before = await listNames();
     await register(registerRequest);
-    const names = (await mongoose.connection.db?.listCollections().toArray())?.map((c) => c.name);
-    expect(names?.every((n) => ['users', 'sessions'].includes(n))).toBe(true);
+    const after = await listNames();
+    expect(after.filter((n) => !before.includes(n) && !['users', 'sessions'].includes(n))).toEqual(
+      [],
+    );
+    expect(after.filter((n) => /list|task/i.test(n))).toEqual([]);
   });
 
   it.each([3, 30])('accepts a %i-character username (AC-3)', async (length) => {

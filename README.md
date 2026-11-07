@@ -87,6 +87,6 @@ creates no user, session or cookie.
 - **Common-password list:** `src/auth/commonPasswords.ts`, about 150 entries of 8+ characters hand-compiled from the
   widely published most-used-password lists (SplashData, NordPass, NCSC). Case-insensitive match. It is a bundled
   subset, not a downloaded copy of a full published file; swap in a larger list there if the client names one.
-- **Sessions:** `sessions` collection, 32 random bytes hex as `_id` (the cookie value), `expiresAt` one day after
+- **Sessions:** `sessions` collection, SHA-256 hex of the 32-random-byte cookie value as `_id` (the raw token lives only in the cookie), `expiresAt` one day after
   creation with a TTL index. `server.ts` awaits `User.init()` and `Session.init()` so the unique and TTL indexes exist
   before the first request.

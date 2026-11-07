@@ -8,7 +8,7 @@ export interface SessionDoc {
 }
 
 const sessionSchema = new Schema<SessionDoc>({
-  // The 32-byte random id is the cookie value, so it is the primary key.
+  // SHA-256 hex of the 32-byte random cookie value, so a read of this collection cannot replay a cookie.
   _id: { type: String, required: true },
   userId: { type: Schema.Types.ObjectId, required: true, index: true },
   createdAt: { type: Date, required: true },

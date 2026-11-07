@@ -40,12 +40,12 @@ Server-side session store backing the HttpOnly session cookie (design assumption
 
 ## Columns / Fields
 
-| Name      | Type     | Constraints         | Notes                                                                         | Confidence           |
-| --------- | -------- | ------------------- | ----------------------------------------------------------------------------- | -------------------- |
-| _id       | string   | PK                  | opaque, cryptographically random, at least 128 bits; this is the cookie value | Assumed              |
-| userId    | ObjectId | required, ref users |                                                                               | Confirmed (DATA-002) |
-| createdAt | Date     | required            |                                                                               | Assumed              |
-| expiresAt | Date     | required            | createdAt + 1 day (BR-004)                                                    | Likely (ASM-023)     |
+| Name      | Type     | Constraints         | Notes                                                                                                                                      | Confidence           |
+| --------- | -------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| _id       | string   | PK                  | SHA-256 hex of the cookie value (a cryptographically random 256-bit token kept only in the cookie); lookups hash the incoming cookie first | Assumed              |
+| userId    | ObjectId | required, ref users |                                                                                                                                            | Confirmed (DATA-002) |
+| createdAt | Date     | required            |                                                                                                                                            | Assumed              |
+| expiresAt | Date     | required            | createdAt + 1 day (BR-004)                                                                                                                 | Likely (ASM-023)     |
 
 ## Keys & Indexes
 
