@@ -29,9 +29,10 @@ cp .env.example .env   # set PORT, MONGODB_URI
 
 ## Endpoints
 
-| Method | Path          | Purpose                           |
-| ------ | ------------- | --------------------------------- |
-| GET    | `/api/health` | Liveness probe — `{ status, db }` |
+| Method | Path                 | Purpose                                                      |
+| ------ | -------------------- | ------------------------------------------------------------ |
+| GET    | `/api/health`        | Liveness probe — `{ status, db }`                            |
+| POST   | `/api/auth/register` | Public. Creates an account and signs the user in (see below) |
 
 ## Error responses
 
@@ -70,3 +71,22 @@ tests/
 
 New resources: `src/routes/<resource>.ts` → `src/services/<resource>.ts` → `src/models/<Entity>.ts`.
 Conventions are in the workspace's `.jetrix/shared-context/coding-standards.md` § backend.
+
+## Account registration
+
+`POST /api/auth/register` is public and takes `{ "username", "password" }`. A username is 3 to 30 letters, numbers
+or underscores and is stored lower-cased; the unique index on `users.username` is the only duplicate guard, so
+concurrent requests for one name create exactly one account (the loser gets `409 USERNAME_TAKEN`). A password is at
+least 8 characters and not on the common-password list; no other rule applies. Success is `201 { "user": { "id",
+"username" } }` plus a session cookie (`sid`: HttpOnly, SameSite=Lax, Path `/`, no Max-Age, `Secure` when
+`NODE_ENV=production`). Refusals use the error envelope with every failing field in `fields`. A refused request
+creates no user, session or cookie.
+
+- **Password hashing:** Node `crypto.scrypt`, N=32768, r=8, p=3, 16-byte random salt per user, 64-byte key (OWASP
+  recommended cost). Stored as `scrypt$N$r$p$<salt>$<hash>`, so the cost can be raised later without a migration.
+- **Common-password list:** `src/auth/commonPasswords.ts`, about 150 entries of 8+ characters hand-compiled from the
+  widely published most-used-password lists (SplashData, NordPass, NCSC). Case-insensitive match. It is a bundled
+  subset, not a downloaded copy of a full published file; swap in a larger list there if the client names one.
+- **Sessions:** `sessions` collection, 32 random bytes hex as `_id` (the cookie value), `expiresAt` one day after
+  creation with a TTL index. `server.ts` awaits `User.init()` and `Session.init()` so the unique and TTL indexes exist
+  before the first request.

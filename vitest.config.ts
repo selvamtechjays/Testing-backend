@@ -22,6 +22,8 @@ export default defineConfig({
           environment: 'node',
           include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
           exclude: ['tests/integration/**'],
+          // Production-cost scrypt (DEC-088) takes about 2s per hash, so the password tests need more than the 5s default.
+          testTimeout: 30000,
         },
       },
       {
