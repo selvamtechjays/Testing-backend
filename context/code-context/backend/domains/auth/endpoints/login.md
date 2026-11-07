@@ -6,10 +6,17 @@ endpoint_id: EP-AUTH-02
 method: POST
 path: /api/auth/login
 match_key: 'POST /api/auth/login'
-status: Proposed
-implementation_state: Planned
-origin: designed
+status: Active
+implementation_state: Implemented
+origin: implemented
 generated_at: 2026-11-06
+design_confidence: Confirmed
+implemented_at: 2026-11-07T07:37:50Z
+implemented_by_commit: a10b022376d046165ef04f1136deb3f92d38d3ce
+implemented_by_task: FEAT-AUTH-02-1
+mapped_from: src/routes/auth.ts
+mapped_from_line: 28
+mapped_from_commit: a10b022376d046165ef04f1136deb3f92d38d3ce
 ---
 
 # Endpoint: Sign In
@@ -20,7 +27,7 @@ EP-AUTH-02
 
 ## Status
 
-Proposed
+Active
 
 ## Method + Path
 
@@ -89,3 +96,11 @@ Public.
 - Workflow: WF-001
 - Business rules: BR-004, BR-027
 - Data: DATA-001, DATA-002
+- Code: src/routes/auth.ts:28
+- Test: tests/integration/auth-session.test.ts
+
+## Design deviation
+
+- The 400 body `message` is the shared `parseBody` text "Validation failed"; the per-field `fields` messages are "Enter a username and password." (the plan's message), as for registration (DEC-073).
+- Route lives in `src/routes/auth.ts` with logic in `src/services/auth.ts` (`loginUser`), following the repo's route/service layout rather than the plan's separate handler files.
+- The dummy hash compare is a fixed well-formed scrypt string at the production cost (DEC-072).

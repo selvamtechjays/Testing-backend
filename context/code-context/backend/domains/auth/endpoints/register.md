@@ -15,8 +15,8 @@ implemented_at: 2026-11-06T13:14:56Z
 implemented_by_commit: 02958850e2c6c6ee5cc798464ba396e43d54cb74
 implemented_by_task: FEAT-AUTH-01-1
 mapped_from: src/routes/auth.ts
-mapped_from_line: 19
-mapped_from_commit: 02958850e2c6c6ee5cc798464ba396e43d54cb74
+mapped_from_line: 22
+mapped_from_commit: a10b022376d046165ef04f1136deb3f92d38d3ce
 ---
 
 # Endpoint: Register Account
@@ -100,7 +100,7 @@ Public (no session). Confidence: Assumed — session mechanism is a TL design as
 - Workflow: WF-001
 - Business rules: BR-002, BR-003, BR-027
 - Data: DATA-001 User, DATA-002 Session
-- Code: src/routes/auth.ts:19
+- Code: src/routes/auth.ts:22
 - Test: tests/integration/auth.register.test.ts
 
 ## Design deviation
