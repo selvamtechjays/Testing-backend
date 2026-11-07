@@ -6,10 +6,17 @@ endpoint_id: EP-AUTH-01
 method: POST
 path: /api/auth/register
 match_key: 'POST /api/auth/register'
-status: Proposed
-implementation_state: Planned
-origin: designed
+status: Active
+implementation_state: Implemented
+origin: implemented
 generated_at: 2026-11-06
+design_confidence: Confirmed
+implemented_at: 2026-11-06T13:14:56Z
+implemented_by_commit: 02958850e2c6c6ee5cc798464ba396e43d54cb74
+implemented_by_task: FEAT-AUTH-01-1
+mapped_from: src/routes/auth.ts
+mapped_from_line: 19
+mapped_from_commit: 02958850e2c6c6ee5cc798464ba396e43d54cb74
 ---
 
 # Endpoint: Register Account
@@ -20,7 +27,7 @@ EP-AUTH-01
 
 ## Status
 
-Proposed
+Active
 
 ## Method + Path
 
@@ -93,3 +100,12 @@ Public (no session). Confidence: Assumed — session mechanism is a TL design as
 - Workflow: WF-001
 - Business rules: BR-002, BR-003, BR-027
 - Data: DATA-001 User, DATA-002 Session
+- Code: src/routes/auth.ts:19
+- Test: tests/integration/auth.register.test.ts
+
+## Design deviation
+
+- Password hash is Node `crypto.scrypt` (N=32768, r=8, p=3, per-user salt), as DEC-058 settled; the design text above still says bcrypt/argon2.
+- The common-password blocklist is a bundled subset of about 150 entries of 8+ characters compiled from published top lists (DEC-059); OQ-AUTH-01 stays open for the client to name a fuller list.
+- The 400 body `message` is the shared `parseBody` text "Validation failed" (owned by FEAT-PLAT-01), not the "Check the highlighted fields." wording in the sub-task plan; the per-field `fields` messages are as designed (DEC-073).
+- Session cookie name is `sid`; the session insert follows the user insert, and a session failure leaves the user and answers a generic 500 (DEC-073).

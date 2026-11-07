@@ -3,10 +3,17 @@ doc_type: entity
 schema_version: 1.1
 produced_by: tl
 entity_id: ENT-AUTH-01
-status: Proposed
-implementation_state: Planned
-origin: designed
+status: Active
+implementation_state: Implemented
+origin: implemented
 generated_at: 2026-11-06
+design_confidence: Confirmed
+implemented_at: 2026-11-06T13:14:56Z
+implemented_by_commit: 02958850e2c6c6ee5cc798464ba396e43d54cb74
+implemented_by_task: FEAT-AUTH-01-1
+mapped_from: src/models/User.ts
+mapped_from_line: 16
+mapped_from_commit: 02958850e2c6c6ee5cc798464ba396e43d54cb74
 ---
 
 # Entity: users
@@ -17,7 +24,7 @@ ENT-AUTH-01
 
 ## Status
 
-Proposed
+Active
 
 ## Kind
 
@@ -75,3 +82,10 @@ Stores a TaskNest account: a username and a password hash. Nothing else (no emai
 - Feature: FEAT-AUTH-01, FEAT-AUTH-02, FEAT-PLAT-03
 - Data register: DATA-001
 - Business rules: BR-002, BR-003, BR-027
+- Code: src/models/User.ts:16
+- Test: tests/integration/auth.register.test.ts
+
+## Design deviation
+
+- `createdAt` is set by the service from the injected clock rather than a schema default, so tests control time (coding standard: time is injected).
+- `passwordHash` is `scrypt$N$r$p$<salt hex>$<hash hex>` (DEC-058).
