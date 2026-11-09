@@ -6,10 +6,17 @@ endpoint_id: EP-TASK-04
 method: DELETE
 path: /api/tasks/:id
 match_key: 'DELETE /api/tasks/:P'
-status: Proposed
-implementation_state: Planned
-origin: designed
+status: Active
+implementation_state: Implemented
+origin: implemented
 generated_at: 2026-11-06
+design_confidence: Confirmed
+implemented_at: 2026-11-07T12:20:00Z
+implemented_by_commit: f293988a8e93930d04df3d8c2698856b3a9b6059
+implemented_by_task: FEAT-TASK-03-1
+mapped_from: src/routes/tasks.ts
+mapped_from_line: 51
+mapped_from_commit: e58dea19ae916587d5d5e23474c436b2c285f11e
 ---
 
 # Endpoint: Delete Task
@@ -20,7 +27,7 @@ EP-TASK-04
 
 ## Status
 
-Proposed
+Active
 
 ## Method + Path
 
@@ -87,3 +94,7 @@ Requires a valid session; the task must be owned by the session user.
 - Workflow: WF-002, WF-003
 - Business rules: BR-010, BR-018, BR-025
 - Data: DATA-004
+- Code: src/routes/tasks.ts:51
+- Code: src/services/tasks.ts:74
+- Test: tests/integration/tasks.delete.integration.test.ts
+- Test: tests/contracts/tasks.delete.contract.test.ts

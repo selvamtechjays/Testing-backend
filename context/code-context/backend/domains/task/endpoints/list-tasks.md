@@ -6,10 +6,17 @@ endpoint_id: EP-TASK-01
 method: GET
 path: /api/tasks
 match_key: 'GET /api/tasks'
-status: Proposed
-implementation_state: Planned
-origin: designed
+status: Active
+implementation_state: Implemented
+origin: implemented
 generated_at: 2026-11-06
+design_confidence: Confirmed
+implemented_at: 2026-11-07T11:05:00Z
+implemented_by_commit: e58dea19ae916587d5d5e23474c436b2c285f11e
+implemented_by_task: FEAT-TASK-01-1
+mapped_from: src/routes/tasks.ts
+mapped_from_line: 36
+mapped_from_commit: e58dea19ae916587d5d5e23474c436b2c285f11e
 ---
 
 # Endpoint: List My Tasks
@@ -20,7 +27,7 @@ EP-TASK-01
 
 ## Status
 
-Proposed
+Active
 
 ## Method + Path
 
@@ -84,3 +91,7 @@ Requires a valid session; results scoped to the session user (BR-025).
 - Workflow: WF-002
 - Business rules: BR-008, BR-025, BR-026
 - Data: DATA-004
+- Code: src/routes/tasks.ts:36
+- Code: src/services/tasks.ts:31
+- Test: tests/integration/tasks.list-and-add.integration.test.ts
+- Test: tests/contracts/tasks.list-and-add.contract.test.ts
