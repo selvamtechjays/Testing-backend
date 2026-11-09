@@ -106,13 +106,20 @@ describe('POST /api/auth/register against a real database', () => {
     // Other test files share this database and leave collections of their own, so compare before and after.
     const listNames = async (): Promise<string[]> =>
       ((await mongoose.connection.db?.listCollections().toArray()) ?? []).map((c) => c.name);
+    const countTasks = async (): Promise<number> =>
+      (await mongoose.connection.db?.collection('tasks').countDocuments({})) ?? 0;
     const before = await listNames();
+    const tasksBefore = await countTasks();
     await register(registerRequest);
     const after = await listNames();
+    // Diff-aware: collections that exist before (e.g. `tasks`, created by the Task model on connect) are not
+    // registration's doing. Only a collection that appears during registration, other than users and
+    // sessions, fails this; so a register path that wrote a list or task collection would still be caught.
     expect(after.filter((n) => !before.includes(n) && !['users', 'sessions'].includes(n))).toEqual(
       [],
     );
-    expect(after.filter((n) => /list|task/i.test(n))).toEqual([]);
+    // The `tasks` collection may pre-exist (the Task model creates it on connect); registration must not seed it.
+    expect(await countTasks()).toBe(tasksBefore);
   });
 
   it.each([3, 30])('accepts a %i-character username (AC-3)', async (length) => {

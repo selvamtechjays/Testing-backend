@@ -29,13 +29,17 @@ cp .env.example .env   # set PORT, MONGODB_URI
 
 ## Endpoints
 
-| Method | Path                 | Purpose                                                      |
-| ------ | -------------------- | ------------------------------------------------------------ |
-| GET    | `/api/health`        | Liveness probe — `{ status, db }`                            |
-| POST   | `/api/auth/register` | Public. Creates an account and signs the user in (see below) |
-| POST   | `/api/auth/login`    | Public. Signs in with username and password (see Sessions)   |
-| POST   | `/api/auth/logout`   | Public. Ends the presented session; always `204`             |
-| GET    | `/api/auth/me`       | Signed-in only. Returns `{ user: { id, username } }`         |
+| Method | Path                 | Purpose                                                        |
+| ------ | -------------------- | -------------------------------------------------------------- |
+| GET    | `/api/health`        | Liveness probe — `{ status, db }`                              |
+| POST   | `/api/auth/register` | Public. Creates an account and signs the user in (see below)   |
+| POST   | `/api/auth/login`    | Public. Signs in with username and password (see Sessions)     |
+| POST   | `/api/auth/logout`   | Public. Ends the presented session; always `204`               |
+| GET    | `/api/auth/me`       | Signed-in only. Returns `{ user: { id, username } }`           |
+| GET    | `/api/tasks`         | Signed-in only. The caller's tasks, newest first (see Tasks)   |
+| POST   | `/api/tasks`         | Signed-in only. Adds a pending task (see Tasks)                |
+| PATCH  | `/api/tasks/:id`     | Signed-in only. Edits the title and/or status (see Tasks)      |
+| DELETE | `/api/tasks/:id`     | Signed-in only. Deletes the caller's task for good (see Tasks) |
 
 ## Error responses
 
@@ -110,3 +114,32 @@ INVALID_CREDENTIALS` body, and both run a scrypt comparison so timing does not t
   cookie value, finds the session, treats `expiresAt <= now` as ended (and deletes the row), loads the user and
   sets `res.locals.user = { id, username }`. Every refusal is `401 UNAUTHENTICATED` "Not signed in.". The
   frontend reads any such 401 as the session having ended.
+
+## Tasks
+
+Both operations sit behind `requireSession` and are scoped to the signed-in user: the owner always comes from the
+session, never from the request body, so one user can never read or change another user's tasks.
+
+- **`GET /api/tasks`:** no parameters. Success is `200 { "tasks": [ { "id", "title", "status", "createdAt" } ] }`,
+  `status` is `pending` or `completed`, newest first by `createdAt` with `id` descending as the tie-break; `[]` when the
+  user has none. Completed tasks are always included. No pagination.
+- **`POST /api/tasks`:** `{ "title" }`. The title is trimmed, then must be 1 to 200 characters (UTF-16 code units);
+  whitespace-only counts as empty. Success is `201 { "task": { "id", "title", "status": "pending", "createdAt" } }`.
+  Refusals are `400 VALIDATION` with `fields.title` set to "Enter a title." or "Titles can be at most 200
+  characters." (the same text the screen shows, `src/lib/taskTitle.ts`). Any other body field (`status`, `ownerId`,
+  notes, due date, priority) is dropped, not stored and not an error.
+- **Storage:** `tasks` collection (`src/models/Task.ts`), compound index `{ ownerId: 1, createdAt: -1 }`; `server.ts`
+  awaits `Task.init()` so it exists before the first request. Code: `src/routes/tasks.ts`, `src/services/tasks.ts`.
+- **`PATCH /api/tasks/:id`:** body `{ "title"?, "status"? }` with at least one. `title` follows the add rule (trimmed, 1 to
+  200 characters, whitespace-only is empty); `status` is `pending` (untick) or `completed` (tick). Success is `200 { "task": {
+"id", "title", "status", "createdAt" } }`. One atomic write filtered by id and owner, so a task that is missing, has a
+  malformed id, or belongs to another user is the same `404 NOT_FOUND` "Task not found." (the id is checked before the body).
+  `400 VALIDATION` puts the message in `fields.title`, `fields.status` ("Status must be pending or completed") or
+  `fields.body` ("Provide a title or a status") and leaves the stored task unchanged. `ownerId`, `createdAt` and any other
+  key are stripped and never written, so a tick or edit never changes a task's place in the list. Setting the current status
+  succeeds; a completed task's title may be edited. Code: `src/lib/taskUpdate.ts`, `updateTask` in `src/services/tasks.ts`.
+- **`DELETE /api/tasks/:id`:** no body (any body is ignored). Success is `204` with no body. A hard delete in one atomic
+  write filtered by id and owner: there is no trash, soft-delete flag or restore route. A missing, malformed or
+  another user's id is the same `404 NOT_FOUND` "Task not found."; a repeat delete of the same id is also `404`. The
+  5-second Undo window lives entirely in the client, which delays this call; the server never holds a deleted task.
+  Code: `deleteTask` in `src/services/tasks.ts`.

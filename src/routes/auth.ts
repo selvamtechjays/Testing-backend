@@ -2,18 +2,13 @@ import { Router } from 'express';
 import { buildClearedSessionCookie, buildSessionCookie, readSessionId } from '../auth/cookie.js';
 import { createRequireSession } from '../auth/requireSession.js';
 import { loginSchema, registerSchema } from '../auth/validation.js';
+import { asRecord } from '../lib/asRecord.js';
 import { parseBody } from '../lib/parseBody.js';
 import { endSession, loginUser, registerUser } from '../services/auth.js';
 
 export interface AuthDeps {
   clock: () => Date;
   secureCookies: boolean;
-}
-
-function asRecord(body: unknown): Record<string, unknown> {
-  return typeof body === 'object' && body !== null && !Array.isArray(body)
-    ? (body as Record<string, unknown>)
-    : {};
 }
 
 /** Public account routes. Register creates the user and its session, then sets the session cookie. */

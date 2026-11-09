@@ -24,8 +24,14 @@ describe('error envelope against a real Mongo connection (AC-3..AC-8)', () => {
     const conn = mongoose.createConnection('mongodb://127.0.0.1:1/none', {
       serverSelectionTimeoutMS: 300,
     });
+    // Take the connection promise at creation and handle it at once: under load the
+    // 300ms selection timeout can elapse before the request reaches the handler, and a
+    // rejection with no handler attached is an unhandled rejection that fails the run.
+    // The assertion below still awaits the same promise inside the handler.
+    const connected = conn.asPromise();
+    connected.catch(() => undefined);
     const app = createErrorApp(async () => {
-      await conn.asPromise();
+      await connected;
     });
     const res = await request(app).post('/api/boom');
     await conn.close().catch(() => undefined);
