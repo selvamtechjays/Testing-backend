@@ -34,7 +34,7 @@ export function createStaticFrontend(distDir: string, apiPrefix: string): Router
       next();
       return;
     }
-    res.sendFile(path.join(root, 'index.html'), (err) => {
+    res.sendFile('index.html', { root }, (err) => {
       if (!err) return;
       const missing = (err as NodeJS.ErrnoException).code === 'ENOENT';
       next(missing ? new ApiError(404, 'NOT_FOUND', 'Not found') : err);

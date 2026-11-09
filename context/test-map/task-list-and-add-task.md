@@ -53,13 +53,14 @@ Every row is runnable on its own. Copy the command. The backend sub-task owns GE
 
 ## Sources covered
 
-| Source                        | Covered by rows                                           |
-| ----------------------------- | --------------------------------------------------------- |
-| `src/models/Task.ts`          | AC-1, AC-3, AC-8, BR-3, BR-6 (integration, real Mongoose) |
-| `src/services/tasks.ts`       | AC-1 to AC-11, BR-1 to BR-6                               |
-| `src/routes/tasks.ts`         | AC-4 to AC-8, AC-10, BR-3, BR-6                           |
-| `src/lib/taskTitle.ts`        | AC-5, AC-7, BR-1, BR-2 (unit and integration)             |
-| `src/app.ts`, `src/server.ts` | AC-10 (mount behind the guard), index creation            |
+| Source                                     | Covered by rows                                                                                    |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `src/models/Task.ts`                       | AC-1, AC-3, AC-8, BR-3, BR-6 (integration, real Mongoose)                                          |
+| `src/services/tasks.ts`                    | AC-1 to AC-11, BR-1 to BR-6                                                                        |
+| `src/routes/tasks.ts`                      | AC-4 to AC-8, AC-10, BR-3, BR-6                                                                    |
+| `src/lib/taskTitle.ts`                     | AC-5, AC-7, BR-1, BR-2 (unit and integration)                                                      |
+| `src/lib/asRecord.ts`, `src/lib/taskId.ts` | AC-6, AC-10 (body and id shape guards; `tests/unit/asRecord.test.ts`, `tests/unit/taskId.test.ts`) |
+| `src/app.ts`, `src/server.ts`              | AC-10 (mount behind the guard), index creation                                                     |
 
 ## Run everything for this feature
 
@@ -79,8 +80,8 @@ npm run test:coverage   # floor: lines/statements 79, branches 80, functions 87
 
 ## Not automated
 
-| ID                                                                                                                                                       | Scenario                                   | Why                                                                                                                            | How to check by hand                     |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
-| AC-2 (visual), AC-4 (no spinner), AC-7 (input stops at 200), AC-8 (no controls), AC-12, BR-7, TS-4, TS-9, TS-10, TS-11, TS-13, NFR-UX, NFR-Accessibility | Screen behaviour and rollback              | owned by the frontend sub-task (deferred-to-e2e, closed by the last sub-task)                                                  | see the frontend unit's test map         |
-| TS-16                                                                                                                                                    | Request another user's task by its address | no per-task read exists in this feature; addressing a task arrives with edit and delete                                        | covered by FEAT-TASK-02 and FEAT-TASK-03 |
-| TS-18                                                                                                                                                    | Title of only spaces                       | pending OQ-TASK-01; the backend treats it as empty (DEC-062) and the unit and integration tests pin that, but no AC anchors it | none until OQ-TASK-01 is answered        |
+| ID                                                                                                                                                       | Scenario                                   | Why                                                                                                                            | How to check by hand                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-2 (visual), AC-4 (no spinner), AC-7 (input stops at 200), AC-8 (no controls), AC-12, BR-7, TS-4, TS-9, TS-10, TS-11, TS-13, NFR-UX, NFR-Accessibility | Screen behaviour and rollback              | owned by the frontend sub-task (deferred-to-e2e, closed by the last sub-task)                                                  | see the frontend unit's test map                                                                                                                                                                                                                                              |
+| TS-16                                                                                                                                                    | Request another user's task by its address | no per-task read exists in this feature; addressing a task arrives with edit and delete                                        | covered by FEAT-TASK-02 and FEAT-TASK-03: `tests/integration/tasks.update.integration.test.ts::answers 404 for another user task and leaves it unchanged` and `tests/integration/tasks.delete.integration.test.ts::answers 404 for another user task and leaves it untouched` |
+| TS-18                                                                                                                                                    | Title of only spaces                       | pending OQ-TASK-01; the backend treats it as empty (DEC-062) and the unit and integration tests pin that, but no AC anchors it | none until OQ-TASK-01 is answered                                                                                                                                                                                                                                             |

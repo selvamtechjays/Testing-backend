@@ -27,6 +27,24 @@ function appWithFrontend() {
   return createApp({ isDbConnected: () => true, frontendDistDir: distDir });
 }
 
+describe('a dist directory under a dot-named parent (regression for sendFile dotfile refusal)', () => {
+  it('still serves index.html for the root and a client route', async () => {
+    const dotParent = mkdtempSync(path.join(tmpdir(), 'tasknest-dot-'));
+    const dotDist = path.join(dotParent, '.build', 'dist');
+    mkdirSync(dotDist, { recursive: true });
+    writeFileSync(path.join(dotDist, 'index.html'), INDEX_HTML);
+    try {
+      const app = createApp({ isDbConnected: () => true, frontendDistDir: dotDist });
+      const root = await request(app).get('/').expect(200);
+      expect(root.text).toBe(INDEX_HTML);
+      const route = await request(app).get('/signin').expect(200);
+      expect(route.text).toBe(INDEX_HTML);
+    } finally {
+      rmSync(dotParent, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('built frontend served beside the API (FEAT-PLAT-03, AC-1)', () => {
   it('serves index.html at the root', async () => {
     const res = await request(appWithFrontend()).get('/').expect(200);

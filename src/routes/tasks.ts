@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { createRequireSession } from '../auth/requireSession.js';
+import { MESSAGES } from '../auth/validation.js';
 import { ApiError } from '../lib/apiError.js';
 import { asRecord } from '../lib/asRecord.js';
 import { parseBody } from '../lib/parseBody.js';
@@ -18,7 +19,7 @@ const createTaskSchema = z.object({ title: taskTitleSchema });
 
 /** The id of the signed-in user, set by the session guard on every request that reaches a handler. */
 function ownerOf(user: { id: string } | undefined): string {
-  if (!user) throw new ApiError(401, 'UNAUTHENTICATED', 'Not signed in.');
+  if (!user) throw new ApiError(401, 'UNAUTHENTICATED', MESSAGES.notSignedIn);
   return user.id;
 }
 
