@@ -1,0 +1,23 @@
+# Provisional Render blueprint (DEC-070 names the PaaS class; the TL confirms provider and cost, see docs/decisions/hosting.md).
+# One web service serves the API and the built frontend from a single origin (DEC-051).
+# Secret values are never committed: every key marked `sync: false` is set in the provider dashboard.
+services:
+  - type: web
+    name: tasknest
+    runtime: node
+    plan: starter
+    # NODE_ENV=production is exposed at build time, so a plain `npm ci` would skip devDependencies and tsc.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: '22'
+      # OPEN ITEM (TL / frontend deploy): the frontend build output must be provided at this path. Nothing in
+      # this blueprint builds or fetches it, so until then the service serves the API only.
+      - key: FRONTEND_DIST_DIR
+        value: ./frontend-dist
+      - key: MONGODB_URI
+        sync: false

@@ -3,10 +3,17 @@ doc_type: entity
 schema_version: 1.1
 produced_by: tl
 entity_id: ENT-TASK-01
-status: Proposed
-implementation_state: Planned
-origin: designed
+status: Active
+implementation_state: Implemented
+origin: implemented
 generated_at: 2026-11-06
+design_confidence: Confirmed
+implemented_at: 2026-11-07T11:05:00Z
+implemented_by_commit: e58dea19ae916587d5d5e23474c436b2c285f11e
+implemented_by_task: FEAT-TASK-01-1
+mapped_from: src/models/Task.ts
+mapped_from_line: 29
+mapped_from_commit: e58dea19ae916587d5d5e23474c436b2c285f11e
 ---
 
 # Entity: tasks
@@ -17,7 +24,7 @@ ENT-TASK-01
 
 ## Status
 
-Proposed
+Active
 
 ## Kind
 
@@ -79,3 +86,9 @@ Stores each user's tasks. The user's list is `tasks where ownerId = user`.
 - Feature: FEAT-TASK-01, FEAT-TASK-02, FEAT-TASK-03, FEAT-PLAT-01, FEAT-PLAT-03
 - Data register: DATA-004
 - Business rules: BR-002, BR-008, BR-010, BR-016, BR-025, BR-026
+- Code: src/models/Task.ts:29
+- Test: tests/integration/tasks.list-and-add.integration.test.ts
+- Code: src/services/tasks.ts:55
+- Test: tests/integration/tasks.update.integration.test.ts
+- Code: src/services/tasks.ts:74
+- Test: tests/integration/tasks.delete.integration.test.ts

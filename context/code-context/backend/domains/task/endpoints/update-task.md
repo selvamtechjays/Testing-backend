@@ -6,10 +6,17 @@ endpoint_id: EP-TASK-03
 method: PATCH
 path: /api/tasks/:id
 match_key: 'PATCH /api/tasks/:P'
-status: Proposed
-implementation_state: Planned
-origin: designed
+status: Active
+implementation_state: Implemented
+origin: implemented
 generated_at: 2026-11-06
+design_confidence: Confirmed
+implemented_at: 2026-11-07T11:50:00Z
+implemented_by_commit: fe84e5bbe9a7f575bbcd496bea2d84f06fbc0822
+implemented_by_task: FEAT-TASK-02-1
+mapped_from: src/routes/tasks.ts
+mapped_from_line: 45
+mapped_from_commit: e58dea19ae916587d5d5e23474c436b2c285f11e
 ---
 
 # Endpoint: Update Task (edit title / complete / reopen)
@@ -20,7 +27,7 @@ EP-TASK-03
 
 ## Status
 
-Proposed
+Active
 
 ## Method + Path
 
@@ -94,3 +101,9 @@ Requires a valid session; the task must be owned by the session user.
 - Workflow: WF-002, WF-003
 - Business rules: BR-008, BR-016, BR-018, BR-025
 - Data: DATA-004
+- Code: src/routes/tasks.ts:45
+- Code: src/services/tasks.ts:55
+- Code: src/lib/taskUpdate.ts:14
+- Test: tests/integration/tasks.update.integration.test.ts
+- Test: tests/unit/taskUpdate.test.ts
+- Test: tests/contracts/tasks.update.contract.test.ts
