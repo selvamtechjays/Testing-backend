@@ -11,12 +11,12 @@ implementation_state: Implemented
 origin: implemented
 generated_at: 2026-11-06
 design_confidence: Confirmed
-implemented_at: 2026-11-07T11:50:00Z
-implemented_by_commit: fe84e5bbe9a7f575bbcd496bea2d84f06fbc0822
-implemented_by_task: FEAT-TASK-02-1
+implemented_at: 2026-11-16T07:40:00Z
+implemented_by_commit: d7158d3e82c56b07b40fb445062ff22a4c482e69
+implemented_by_task: TASK-DUE-DATES-PRIORITY-FILTERS
 mapped_from: src/routes/tasks.ts
-mapped_from_line: 45
-mapped_from_commit: e58dea19ae916587d5d5e23474c436b2c285f11e
+mapped_from_line: 56
+mapped_from_commit: d7158d3e82c56b07b40fb445062ff22a4c482e69
 ---
 
 # Endpoint: Update Task (edit title / complete / reopen)
@@ -39,7 +39,7 @@ Task
 
 ## Purpose
 
-Change a task's title and/or status: tick to Completed, untick to Pending, or correct the title (TASK-UC-03, TASK-UC-04). One partial-update endpoint serves both because both change only fields of the same single-field-set task (design decision).
+Change a task's title, status, due date and/or priority: tick to Completed, untick to Pending, correct the title, set, change or clear the due date, or change the priority (TASK-UC-03, TASK-UC-04, Task-23). One partial-update endpoint serves both because both change only fields of the same single-field-set task (design decision).
 
 ## Trigger
 
@@ -47,17 +47,19 @@ Called by page(s) — see Called by.
 
 ## Request
 
-| Field  | Type                     | Required | Notes                                 | Confidence         |
-| ------ | ------------------------ | -------- | ------------------------------------- | ------------------ |
-| title  | string                   | no       | trimmed; non-empty; at most 200 chars | Confirmed (BR-016) |
-| status | "pending" or "completed" | no       | tick = completed, untick = pending    | Confirmed (BR-008) |
+| Field    | Type                     | Required | Notes                                                                                  | Confidence                     |
+| -------- | ------------------------ | -------- | -------------------------------------------------------------------------------------- | ------------------------------ |
+| title    | string                   | no       | trimmed; non-empty; at most 200 chars                                                  | Confirmed (BR-016)             |
+| status   | "pending" or "completed" | no       | tick = completed, untick = pending                                                     | Confirmed (BR-008)             |
+| dueDate  | `YYYY-MM-DD` or null     | no       | same rule as create; `null` clears the date (the field is removed, not stored as null) | Confirmed (Task-23 AC-3, AC-4) |
+| priority | low, medium or high      | no       | same rule as create                                                                    | Confirmed (Task-23 AC-3, AC-4) |
 
-At least one field is required. Path param `id` is the task id. No other field is editable.
+At least one of the four fields is required (`dueDate: null` counts). Path param `id` is the task id. No other field is editable.
 
 ## Response
 
-- `200 OK` → `{ task: { id, title, status, createdAt } }`
-- `400` empty/over-200 title, invalid status, or empty body; the stored task is unchanged (old title kept)
+- `200 OK` → `{ task: { id, title, status, createdAt, dueDate, priority } }`; clearing a date returns `"dueDate": null`
+- `400` each refused field under `fields.<name>` (`title`, `status`, `dueDate`, `priority`: `status` uses "Status must be pending or completed" (no full stop, shared with the list filter), `priority` and `dueDate` use the create messages), or `fields.body` = "Provide a title, status, due date or priority" for an empty body; the stored task is unchanged
 - `401` no valid session
 - `404` task does not exist or belongs to another user (privacy, BR-025)
 - Response shape: Assumed
@@ -69,7 +71,8 @@ Requires a valid session; the task must be owned by the session user.
 ## Behaviour / Business Rules
 
 - Status changes never move the task or change createdAt; completed tasks stay in the list (BR-008, BR-026).
-- Setting status to its current value is a no-op success (idempotent).
+- Setting a field to its current value is a no-op success (idempotent).
+- Only the fields sent and `updatedAt` are written, in one atomic write filtered by id and owner; a `null` due date is written as `$unset`. A task stored without a priority reads as `medium` until one is set (DEC-210).
 - Failure is surfaced by rolling the screen back (BR-018, FEAT-PLAT-01).
 - No edit history or audit trail (out of scope).
 
@@ -101,9 +104,12 @@ Requires a valid session; the task must be owned by the session user.
 - Workflow: WF-002, WF-003
 - Business rules: BR-008, BR-016, BR-018, BR-025
 - Data: DATA-004
-- Code: src/routes/tasks.ts:45
-- Code: src/services/tasks.ts:55
-- Code: src/lib/taskUpdate.ts:14
+- Task: Task-23 Due dates, priority, and list filters (DEC-210, DEC-211, DEC-214)
+- Code: src/routes/tasks.ts:56
+- Code: src/services/tasks.ts:199
+- Code: src/lib/taskUpdate.ts:16
+- Code: src/lib/taskFields.ts:28
 - Test: tests/integration/tasks.update.integration.test.ts
 - Test: tests/unit/taskUpdate.test.ts
 - Test: tests/contracts/tasks.update.contract.test.ts
+- Test map: context/test-map/due-dates-priority-filters.md
