@@ -15,8 +15,8 @@ implemented_at: 2026-11-07T12:20:00Z
 implemented_by_commit: f293988a8e93930d04df3d8c2698856b3a9b6059
 implemented_by_task: FEAT-TASK-03-1
 mapped_from: src/routes/tasks.ts
-mapped_from_line: 51
-mapped_from_commit: e58dea19ae916587d5d5e23474c436b2c285f11e
+mapped_from_line: 63
+mapped_from_commit: d7158d3e82c56b07b40fb445062ff22a4c482e69
 ---
 
 # Endpoint: Delete Task
@@ -94,7 +94,7 @@ Requires a valid session; the task must be owned by the session user.
 - Workflow: WF-002, WF-003
 - Business rules: BR-010, BR-018, BR-025
 - Data: DATA-004
-- Code: src/routes/tasks.ts:51
-- Code: src/services/tasks.ts:74
+- Code: src/routes/tasks.ts:63
+- Code: src/services/tasks.ts:221
 - Test: tests/integration/tasks.delete.integration.test.ts
 - Test: tests/contracts/tasks.delete.contract.test.ts

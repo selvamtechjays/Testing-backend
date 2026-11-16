@@ -7,16 +7,24 @@ import { asRecord } from '../lib/asRecord.js';
 import { parseBody } from '../lib/parseBody.js';
 import { TASK_ID_PATTERN, TASK_NOT_FOUND } from '../lib/taskId.js';
 import { listQuerySchema } from '../lib/taskSearch.js';
+import { dueDateSchema, prioritySchema } from '../lib/taskFields.js';
 import { taskTitleSchema } from '../lib/taskTitle.js';
-import { updateTaskSchema } from '../lib/taskUpdate.js';
+import { createUpdateTaskSchema } from '../lib/taskUpdate.js';
 import { createTask, deleteTask, listTasks, updateTask } from '../services/tasks.js';
 
 export interface TasksDeps {
   clock: () => Date;
 }
 
-// Unknown body fields (status, ownerId, notes, ...) are stripped, never stored and never an error.
-const createTaskSchema = z.object({ title: taskTitleSchema });
+// Unknown body fields (status, ownerId, notes, ...) are stripped, never stored and never an error. A null due date
+// is the same as leaving it out. The clock is injected for the due-date limit.
+function createTaskSchema(now: Date) {
+  return z.object({
+    title: taskTitleSchema,
+    dueDate: dueDateSchema(now).nullable().optional(),
+    priority: prioritySchema.optional(),
+  });
+}
 
 /** The id of the signed-in user, set by the session guard on every request that reaches a handler. */
 function ownerOf(user: { id: string } | undefined): string {
@@ -36,19 +44,20 @@ export function createTasksRouter(deps: TasksDeps): Router {
   const router = Router();
   const requireSession = createRequireSession({ clock: deps.clock });
   router.get('/tasks', requireSession, async (req, res) => {
-    const { search } = parseBody(listQuerySchema, asRecord(req.query));
-    const tasks = await listTasks(ownerOf(res.locals.user), search);
-    res.status(200).json({ tasks });
+    const query = parseBody(listQuerySchema, asRecord(req.query));
+    res.status(200).json(await listTasks(ownerOf(res.locals.user), query));
   });
   router.post('/tasks', requireSession, async (req, res) => {
-    const input = parseBody(createTaskSchema, asRecord(req.body));
-    const task = await createTask(ownerOf(res.locals.user), input.title, deps.clock());
+    const now = deps.clock();
+    const input = parseBody(createTaskSchema(now), asRecord(req.body));
+    const task = await createTask(ownerOf(res.locals.user), input, now);
     res.status(201).json({ task });
   });
   router.patch('/tasks/:id', requireSession, async (req, res) => {
     const taskId = taskIdOf(req.params.id);
-    const input = parseBody(updateTaskSchema, asRecord(req.body));
-    const task = await updateTask(ownerOf(res.locals.user), taskId, input, deps.clock());
+    const now = deps.clock();
+    const input = parseBody(createUpdateTaskSchema(now), asRecord(req.body));
+    const task = await updateTask(ownerOf(res.locals.user), taskId, input, now);
     res.status(200).json({ task });
   });
   router.delete('/tasks/:id', requireSession, async (req, res) => {

@@ -5,7 +5,11 @@ import { parseBody } from '../../src/lib/parseBody.js';
 import { ApiError } from '../../src/lib/apiError.js';
 import { TITLE_MESSAGES } from '../../src/lib/taskTitle.js';
 import { TASK_ID_PATTERN } from '../../src/lib/taskId.js';
-import { UPDATE_MESSAGES, updateTaskSchema } from '../../src/lib/taskUpdate.js';
+import { TASK_FIELD_MESSAGES } from '../../src/lib/taskFields.js';
+import { UPDATE_MESSAGES, createUpdateTaskSchema } from '../../src/lib/taskUpdate.js';
+
+const NOW = new Date('2026-11-16T12:00:00.000Z');
+const updateTaskSchema = createUpdateTaskSchema(NOW);
 
 function refusedFields(body: unknown): Record<string, string> {
   try {
@@ -67,6 +71,49 @@ describe('update body rule (FEAT-TASK-02, BR-1, BR-2, BR-3)', () => {
       notes: 'n',
     });
     expect(parsed).toEqual({ status: 'completed' });
+  });
+});
+
+describe('update body rule for due date and priority (Task-23, AC-3, AC-4)', () => {
+  it('names all four editable fields in the empty-body message', () => {
+    expect(UPDATE_MESSAGES.empty).toBe('Provide a title, status, due date or priority');
+    expect(refusedFields({})).toEqual({ body: UPDATE_MESSAGES.empty });
+  });
+
+  it('accepts a due date alone and a priority alone (AC-3)', () => {
+    expect(parseBody(updateTaskSchema, { dueDate: '2026-11-20' })).toEqual({
+      dueDate: '2026-11-20',
+    });
+    expect(parseBody(updateTaskSchema, { priority: 'high' })).toEqual({ priority: 'high' });
+  });
+
+  it('accepts a null due date, which clears it, and counts it as a provided field (AC-3)', () => {
+    expect(parseBody(updateTaskSchema, { dueDate: null })).toEqual({ dueDate: null });
+  });
+
+  it('accepts all four fields together', () => {
+    const body = { title: 'x', status: 'completed', dueDate: '2026-11-20', priority: 'low' };
+    expect(parseBody(updateTaskSchema, body)).toEqual(body);
+  });
+
+  it('refuses a date that is not real, with the field named (AC-4)', () => {
+    for (const dueDate of ['2026-02-30', 'tomorrow', 5]) {
+      expect(refusedFields({ dueDate }), String(dueDate)).toEqual({
+        dueDate: TASK_FIELD_MESSAGES.dueDateInvalid,
+      });
+    }
+  });
+
+  it('refuses a due date 6 years ahead, with the field named (AC-4)', () => {
+    expect(refusedFields({ dueDate: '2032-11-16' })).toEqual({
+      dueDate: TASK_FIELD_MESSAGES.dueDateTooFar,
+    });
+  });
+
+  it('refuses the priority "urgent", with the field named (AC-4)', () => {
+    expect(refusedFields({ priority: 'urgent' })).toEqual({
+      priority: TASK_FIELD_MESSAGES.priority,
+    });
   });
 });
 

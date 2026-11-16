@@ -152,7 +152,8 @@ describe('list and add tasks against a real database (FEAT-TASK-01)', () => {
     expect(await Task.countDocuments({ ownerId: new mongoose.Types.ObjectId(other.id) })).toBe(0);
   });
 
-  it('stores only the title, status, owner and times: no description, notes, due date or priority (AC-8, BR-1)', async () => {
+  // Task-23 supersedes the old "no due date or priority" rule (DEC-215): those two are now stored.
+  it('stores no description or notes: only title, status, owner, times, due date and priority (AC-8, BR-1, DEC-215)', async () => {
     const user = await signInAs('priya');
     const res = await addAs(user, {
       title: 'Just a title',
@@ -161,12 +162,24 @@ describe('list and add tasks against a real database (FEAT-TASK-01)', () => {
       dueDate: '2026-04-01',
       priority: 'high',
     }).expect(201);
-    expect(Object.keys(res.body.task).sort()).toEqual(['createdAt', 'id', 'status', 'title']);
+    expect(Object.keys(res.body.task).sort()).toEqual(
+      ['createdAt', 'dueDate', 'id', 'priority', 'status', 'title'].sort(),
+    );
     const raw = await Task.collection.findOne({
       _id: new mongoose.Types.ObjectId(res.body.task.id),
     });
     expect(Object.keys(raw ?? {}).sort()).toEqual(
-      ['__v', '_id', 'createdAt', 'ownerId', 'status', 'title', 'updatedAt'].sort(),
+      [
+        '__v',
+        '_id',
+        'createdAt',
+        'dueDate',
+        'ownerId',
+        'priority',
+        'status',
+        'title',
+        'updatedAt',
+      ].sort(),
     );
   });
 
@@ -386,5 +399,120 @@ describe('search tasks by title against a real database (Task-22, DEC-208)', () 
 
   it('refuses a search without a session (AC-5)', async () => {
     await request(app()).get('/api/tasks?search=milk').expect(401);
+  });
+});
+
+describe('due date and priority on add and list (Task-23)', () => {
+  beforeAll(async () => {
+    await Promise.all([User.init(), Session.init(), Task.init()]);
+  });
+
+  const rawTask = (id: string) => Task.collection.findOne({ _id: new mongoose.Types.ObjectId(id) });
+
+  it('stores a task added with no due date and no priority as Medium with no due date (AC-1)', async () => {
+    const user = await signInAs('priya');
+    const res = await addAs(user, { title: 'Plain' }).expect(201);
+    const { task } = expectMatchesSchema(createTaskSuccessSchema, res.body);
+    expect([task.dueDate, task.priority]).toEqual([null, 'medium']);
+    const raw = await rawTask(task.id);
+    expect(raw?.priority).toBe('medium');
+    expect(raw).not.toHaveProperty('dueDate');
+  });
+
+  it('treats a null due date as no due date (AC-1)', async () => {
+    const user = await signInAs('priya');
+    const res = await addAs(user, { title: 'Null date', dueDate: null }).expect(201);
+    expect(res.body.task.dueDate).toBeNull();
+    expect(await rawTask(res.body.task.id)).not.toHaveProperty('dueDate');
+  });
+
+  it('shows a task written before these fields existed as Medium with no due date (AC-1, DEC-210)', async () => {
+    const user = await signInAs('priya');
+    const legacy = await Task.collection.insertOne({
+      ownerId: new mongoose.Types.ObjectId(user.id),
+      title: 'Written before due dates',
+      status: 'pending',
+      createdAt: new Date('2026-03-01T09:00:00.000Z'),
+      updatedAt: new Date('2026-03-01T09:00:00.000Z'),
+    });
+    const raw = await rawTask(legacy.insertedId.toString());
+    expect(raw).not.toHaveProperty('priority');
+    expect(raw).not.toHaveProperty('dueDate');
+    const res = await listAs(user).expect(200);
+    const { tasks } = expectMatchesSchema(listTasksSuccessSchema, res.body);
+    expect(tasks.map((t) => [t.title, t.dueDate, t.priority])).toEqual([
+      ['Written before due dates', null, 'medium'],
+    ]);
+  });
+
+  it('returns exactly the due date and priority it was given, and keeps them on the next read (AC-2)', async () => {
+    const user = await signInAs('priya');
+    const res = await addAs(user, {
+      title: 'Pay rent',
+      dueDate: '2026-11-20',
+      priority: 'high',
+    }).expect(201);
+    const { task } = expectMatchesSchema(createTaskSuccessSchema, res.body);
+    expect([task.dueDate, task.priority]).toEqual(['2026-11-20', 'high']);
+    const list = await listAs(user).expect(200);
+    expect([list.body.tasks[0].dueDate, list.body.tasks[0].priority]).toEqual([
+      '2026-11-20',
+      'high',
+    ]);
+  });
+
+  it('stores the due date as the plain string it was sent, so it cannot shift (AC-9, R-1)', async () => {
+    const west = await signInAs('priya');
+    const east = await signInAs('arjun');
+    for (const user of [west, east]) {
+      const res = await addAs(user, { title: 'Same day', dueDate: '2026-11-20' }).expect(201);
+      expect(res.body.task.dueDate).toBe('2026-11-20');
+      expect((await rawTask(res.body.task.id))?.dueDate).toBe('2026-11-20');
+      const list = await listAs(user).expect(200);
+      expect(list.body.tasks[0].dueDate).toBe('2026-11-20');
+    }
+  });
+
+  it('accepts a past due date', async () => {
+    const user = await signInAs('priya');
+    const res = await addAs(user, { title: 'Late', dueDate: '2020-01-01' }).expect(201);
+    expect(res.body.task.dueDate).toBe('2020-01-01');
+  });
+
+  it('refuses a date that is not real, "urgent" and 6 years ahead, naming the field (AC-4)', async () => {
+    const user = await signInAs('priya');
+    const notReal = 'Due date must be a real date in YYYY-MM-DD form.';
+    const cases: [object, string, string][] = [
+      [{ dueDate: '2026-02-30' }, 'dueDate', notReal],
+      [{ dueDate: 'tomorrow' }, 'dueDate', notReal],
+      [{ dueDate: 20261120 }, 'dueDate', notReal],
+      [{ priority: 'urgent' }, 'priority', 'Priority must be low, medium or high.'],
+      [{ dueDate: '2032-03-02' }, 'dueDate', 'Due date can be at most 5 years ahead.'],
+    ];
+    for (const [extra, field, message] of cases) {
+      const res = await addAs(user, { title: 'Refused', ...extra }).expect(400);
+      const body = expectMatchesSchema(createTaskValidationSchema, res.body);
+      expect(body.error.fields, JSON.stringify(extra)).toEqual({ [field]: message });
+    }
+    expect(await Task.countDocuments()).toBe(0);
+  });
+
+  it('accepts the last allowed due date and refuses the day after, from the server UTC date (AC-4, DEC-211)', async () => {
+    const user = await signInAs('priya');
+    // The clock is 2026-03-01 UTC, so the limit is 2031-03-02.
+    await addAs(user, { title: 'Edge', dueDate: '2031-03-02' }).expect(201);
+    const refused = await addAs(user, { title: 'Past the edge', dueDate: '2031-03-03' }).expect(
+      400,
+    );
+    expect(expectMatchesSchema(createTaskValidationSchema, refused.body).error.fields).toEqual({
+      dueDate: 'Due date can be at most 5 years ahead.',
+    });
+  });
+
+  it('reports title, due date and priority problems together, in that order', async () => {
+    const user = await signInAs('priya');
+    const res = await addAs(user, { title: '', dueDate: 'x', priority: 'y' }).expect(400);
+    const { fields } = expectMatchesSchema(createTaskValidationSchema, res.body).error;
+    expect(Object.keys(fields)).toEqual(['title', 'dueDate', 'priority']);
   });
 });

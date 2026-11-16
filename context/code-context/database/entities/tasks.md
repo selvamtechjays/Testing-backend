@@ -8,12 +8,12 @@ implementation_state: Implemented
 origin: implemented
 generated_at: 2026-11-06
 design_confidence: Confirmed
-implemented_at: 2026-11-07T11:05:00Z
-implemented_by_commit: e58dea19ae916587d5d5e23474c436b2c285f11e
-implemented_by_task: FEAT-TASK-01-1
+implemented_at: 2026-11-16T07:40:00Z
+implemented_by_commit: d7158d3e82c56b07b40fb445062ff22a4c482e69
+implemented_by_task: TASK-DUE-DATES-PRIORITY-FILTERS
 mapped_from: src/models/Task.ts
-mapped_from_line: 29
-mapped_from_commit: e58dea19ae916587d5d5e23474c436b2c285f11e
+mapped_from_line: 48
+mapped_from_commit: d7158d3e82c56b07b40fb445062ff22a4c482e69
 ---
 
 # Entity: tasks
@@ -32,7 +32,7 @@ Collection (Mongoose model `Task`)
 
 ## Source Data Entity
 
-DATA-004 Task (shared-context/data.md): title, status, created_at, owner. One shared Task entity for all task features. There is no `lists` collection: DATA-003 List was removed (DEC-042) and the user's one personal list is implicit (BR-002).
+DATA-004 Task (shared-context/data.md): title, status, created_at, owner, plus an optional due date and a priority (Task-23, DEC-215). One shared Task entity for all task features. There is no `lists` collection: DATA-003 List was removed (DEC-042) and the user's one personal list is implicit (BR-002).
 
 ## Purpose
 
@@ -40,19 +40,22 @@ Stores each user's tasks. The user's list is `tasks where ownerId = user`.
 
 ## Columns / Fields
 
-| Name      | Type     | Constraints                                          | Notes                     | Confidence                 |
-| --------- | -------- | ---------------------------------------------------- | ------------------------- | -------------------------- |
-| _id       | ObjectId | PK                                                   | exposed as `id`           | Assumed                    |
-| ownerId   | ObjectId | required, ref users, indexed                         | privacy boundary (BR-025) | Confirmed (DATA-004 owner) |
-| title     | string   | required, 1 to 200 chars after trim                  | BR-016                    | Confirmed                  |
-| status    | enum     | required, default `pending`; `pending` / `completed` |                           | Confirmed (BR-008, BR-016) |
-| createdAt | Date     | required, default now                                | ordering key (BR-026)     | Confirmed                  |
-| updatedAt | Date     | required                                             | Mongoose timestamps       | Assumed                    |
+| Name      | Type     | Constraints                                           | Notes                                                                                                                                                       | Confidence                           |
+| --------- | -------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| _id       | ObjectId | PK                                                    | exposed as `id`                                                                                                                                             | Assumed                              |
+| ownerId   | ObjectId | required, ref users, indexed                          | privacy boundary (BR-025)                                                                                                                                   | Confirmed (DATA-004 owner)           |
+| title     | string   | required, 1 to 200 chars after trim                   | BR-016                                                                                                                                                      | Confirmed                            |
+| status    | enum     | required, default `pending`; `pending` / `completed`  |                                                                                                                                                             | Confirmed (BR-008, BR-016)           |
+| dueDate   | string   | optional, `YYYY-MM-DD`; absent when the task has none | a calendar date, never a Date, so it cannot shift with a time zone (DEC-214); cleared with `$unset`                                                         | Confirmed (Task-23 AC-2, AC-3, AC-9) |
+| priority  | enum     | `low` / `medium` / `high`, default `medium`           | rows written before this field existed lack it; every reader maps a missing value to `medium` (DEC-210), because `.lean()` and aggregation skip the default | Confirmed (Task-23 AC-1)             |
+| createdAt | Date     | required, default now                                 | ordering key (BR-026)                                                                                                                                       | Confirmed                            |
+| updatedAt | Date     | required                                              | Mongoose timestamps                                                                                                                                         | Assumed                              |
 
 ## Keys & Indexes
 
 - PK: `_id`
-- Compound index: `{ ownerId: 1, createdAt: -1 }` (list newest first per user)
+- Compound index: `{ ownerId: 1, createdAt: -1 }` (list newest first per user). No index was added for `dueDate` or `priority`: every list narrows to one owner first (DEC-216).
+- Migration: none. Existing rows are not rewritten (DEC-210); dual-read of a missing `priority` and `dueDate` is permanent.
 
 ## Relationships
 
@@ -86,9 +89,12 @@ Stores each user's tasks. The user's list is `tasks where ownerId = user`.
 - Feature: FEAT-TASK-01, FEAT-TASK-02, FEAT-TASK-03, FEAT-PLAT-01, FEAT-PLAT-03
 - Data register: DATA-004
 - Business rules: BR-002, BR-008, BR-010, BR-016, BR-025, BR-026
-- Code: src/models/Task.ts:29
+- Code: src/models/Task.ts:48
 - Test: tests/integration/tasks.list-and-add.integration.test.ts
-- Code: src/services/tasks.ts:55
+- Code: src/services/tasks.ts:199
 - Test: tests/integration/tasks.update.integration.test.ts
-- Code: src/services/tasks.ts:74
+- Code: src/services/tasks.ts:221
+- Task: Task-23 Due dates, priority, and list filters (DEC-210, DEC-214, DEC-215, DEC-216)
+- Code: src/models/Task.ts:26
+- Test: tests/integration/tasks.filters.integration.test.ts
 - Test: tests/integration/tasks.delete.integration.test.ts
