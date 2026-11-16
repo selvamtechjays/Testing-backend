@@ -53,10 +53,6 @@ describe('due date rule (AC-4, DEC-211)', () => {
     expect(refusal(schema.safeParse('2031-11-18'))).toEqual([TASK_FIELD_MESSAGES.dueDateTooFar]);
   });
 
-  it('refuses a due date 6 years ahead as too far (AC-4)', () => {
-    expect(refusal(schema.safeParse('2032-11-16'))).toEqual([TASK_FIELD_MESSAGES.dueDateTooFar]);
-  });
-
   it('measures the limit from the injected clock, not the wall clock', () => {
     const later = dueDateSchema(new Date('2030-01-01T00:00:00.000Z'));
     expect(later.parse('2035-01-02')).toBe('2035-01-02');

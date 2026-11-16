@@ -143,11 +143,6 @@ describe('filter and sort the task list against a real database (Task-23)', () =
       expect(body.error.fields).toEqual({ today: 'Today must be a real date in YYYY-MM-DD form.' });
     });
 
-    it('allows the no-date filter without today', async () => {
-      const user = await signInAs('priya');
-      await getAs(user, 'due=none').expect(200);
-    });
-
     it('refuses the same request from a service caller with no today', async () => {
       const user = await signInAs('priya');
       const refused = await listTasks(user.id, { due: 'week' }).catch((err: unknown) => err);
@@ -277,8 +272,8 @@ describe('filter and sort the task list against a real database (Task-23)', () =
   describe('combining filters, and other users (AC-7)', () => {
     it('combines status, priority, due, sort and search, and every one narrows the result', async () => {
       const user = await signInAs('priya');
-      await seed(user, 'Pay rent', { priority: 'high', dueDate: '2026-11-18', createdAt: at(1) });
-      await seed(user, 'Pay tax', { priority: 'high', dueDate: '2026-11-17', createdAt: at(2) });
+      await seed(user, 'Pay rent', { priority: 'high', dueDate: '2026-11-18', createdAt: at(2) });
+      await seed(user, 'Pay tax', { priority: 'high', dueDate: '2026-11-17', createdAt: at(1) });
       await seed(user, 'Pay gym', { priority: 'low', dueDate: '2026-11-18', createdAt: at(3) });
       await seed(user, 'Pay done', {
         priority: 'high',

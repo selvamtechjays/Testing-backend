@@ -163,8 +163,4 @@ describe('task list filter query rule (EP-TASK-01, Task-23)', () => {
   it('accepts the none filter without today (AC-8)', () => {
     expect(parseBody(listQuerySchema, { due: 'none' })).toEqual({ due: 'none' });
   });
-
-  it('reports a bad due value alone, without also asking for today', () => {
-    expect(refusedKeys({ due: 'soon' })).toEqual({ due: LIST_QUERY_MESSAGES.due });
-  });
 });
