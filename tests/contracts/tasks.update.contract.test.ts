@@ -15,3 +15,15 @@ describe('contract: PATCH /api/tasks/:id (EP-TASK-03)', () => {
     expectMatchesSchema(unauthenticatedSchema, res.body);
   });
 });
+
+describe('contract: PATCH /api/tasks/:id with a due date and priority (EP-TASK-03, Task-23)', () => {
+  it('refuses a caller with no session using the 401 envelope, before reading the body', async () => {
+    for (const body of [{ dueDate: null }, { dueDate: '2026-02-30' }, { priority: 'urgent' }]) {
+      const res = await request(createTestApp())
+        .patch('/api/tasks/0123456789abcdef01234567')
+        .send(body)
+        .expect(401);
+      expectMatchesSchema(unauthenticatedSchema, res.body);
+    }
+  });
+});

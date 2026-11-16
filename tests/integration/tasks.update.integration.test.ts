@@ -122,7 +122,7 @@ describe('edit and complete a task against a real database (FEAT-TASK-02)', () =
     ).toBe('Status must be pending or completed');
     const empty = await patchAs(user, task.id, {}).expect(400);
     expect(expectMatchesSchema(updateTaskValidationSchema, empty.body).error.fields.body).toBe(
-      'Provide a title or a status',
+      'Provide a title, status, due date or priority',
     );
     const row = await stored(task.id);
     expect([row?.title, row?.status]).toEqual(['Keep me', 'pending']);
@@ -222,5 +222,104 @@ describe('edit and complete a task against a real database (FEAT-TASK-02)', () =
     const task = await seedTask(owner, 'Private', T('2026-03-01T09:00:00.000Z'));
     await request(app()).patch(`/api/tasks/${task.id}`).send({ status: 'completed' }).expect(401);
     expect((await stored(task.id))?.status).toBe('pending');
+  });
+});
+
+describe('change a due date or priority against a real database (Task-23)', () => {
+  beforeAll(async () => {
+    await Promise.all([User.init(), Session.init(), Task.init()]);
+  });
+
+  it('sets and changes a due date and returns it (AC-3)', async () => {
+    const user = await signInAs('priya');
+    const task = await seedTask(user, 'Dated', T('2026-03-01T09:00:00.000Z'));
+    const set = await patchAs(user, task.id, { dueDate: '2026-11-20' }).expect(200);
+    expect(expectMatchesSchema(updateTaskSuccessSchema, set.body).task.dueDate).toBe('2026-11-20');
+    expect((await stored(task.id))?.dueDate).toBe('2026-11-20');
+    const changed = await patchAs(user, task.id, { dueDate: '2026-12-01' }).expect(200);
+    expect(changed.body.task.dueDate).toBe('2026-12-01');
+  });
+
+  it('clears a due date with null: it returns null and the field is removed (AC-3)', async () => {
+    const user = await signInAs('priya');
+    const task = await seedTask(user, 'Dated', T('2026-03-01T09:00:00.000Z'));
+    await patchAs(user, task.id, { dueDate: '2026-11-20' }).expect(200);
+    const res = await patchAs(user, task.id, { dueDate: null }).expect(200);
+    expect(res.body.task.dueDate).toBeNull();
+    expect(await stored(task.id)).not.toHaveProperty('dueDate');
+    const list = await request(app()).get('/api/tasks').set('Cookie', user.cookie).expect(200);
+    expect(list.body.tasks[0].dueDate).toBeNull();
+  });
+
+  it('clearing a date on a task that has none succeeds (AC-3)', async () => {
+    const user = await signInAs('priya');
+    const task = await seedTask(user, 'No date', T('2026-03-01T09:00:00.000Z'));
+    const res = await patchAs(user, task.id, { dueDate: null }).expect(200);
+    expect(res.body.task.dueDate).toBeNull();
+  });
+
+  it('changes the priority and returns it, leaving the due date alone (AC-3)', async () => {
+    const user = await signInAs('priya');
+    const task = await seedTask(user, 'Keep date', T('2026-03-01T09:00:00.000Z'));
+    await patchAs(user, task.id, { dueDate: '2026-11-20' }).expect(200);
+    const res = await patchAs(user, task.id, { priority: 'high' }).expect(200);
+    expect([res.body.task.dueDate, res.body.task.priority]).toEqual(['2026-11-20', 'high']);
+    expect((await stored(task.id))?.priority).toBe('high');
+  });
+
+  it('reads Medium for a task written before the priority field, until a priority is set (DEC-210)', async () => {
+    const user = await signInAs('priya');
+    const legacy = await Task.collection.insertOne({
+      ownerId: new mongoose.Types.ObjectId(user.id),
+      title: 'Legacy',
+      status: 'pending',
+      createdAt: T('2026-03-01T09:00:00.000Z'),
+      updatedAt: T('2026-03-01T09:00:00.000Z'),
+    });
+    const id = legacy.insertedId.toString();
+    const renamed = await patchAs(user, id, { title: 'Legacy, renamed' }).expect(200);
+    expect(renamed.body.task.priority).toBe('medium');
+    const res = await patchAs(user, id, { priority: 'low' }).expect(200);
+    expect(res.body.task.priority).toBe('low');
+  });
+
+  it('writes only the fields sent and updatedAt (AC-3)', async () => {
+    const user = await signInAs('priya');
+    const task = await seedTask(user, 'Only priority', T('2026-03-01T09:00:00.000Z'));
+    await patchAs(user, task.id, { priority: 'low' }).expect(200);
+    const row = await stored(task.id);
+    expect([row?.title, row?.status, row?.updatedAt]).toEqual(['Only priority', 'pending', NOW]);
+    expect(row?.priority).toBe('low');
+    expect(row).not.toHaveProperty('dueDate');
+  });
+
+  it('refuses a date that is not real, "urgent" and 6 years ahead, naming the field, and changes nothing (AC-4)', async () => {
+    const user = await signInAs('priya');
+    const task = await seedTask(user, 'Unchanged', T('2026-03-01T09:00:00.000Z'));
+    const notReal = 'Due date must be a real date in YYYY-MM-DD form.';
+    const cases: [object, string, string][] = [
+      [{ dueDate: '2026-02-30' }, 'dueDate', notReal],
+      [{ dueDate: 'tomorrow' }, 'dueDate', notReal],
+      [{ priority: 'urgent' }, 'priority', 'Priority must be low, medium or high.'],
+      [{ dueDate: '2032-03-01' }, 'dueDate', 'Due date can be at most 5 years ahead.'],
+    ];
+    for (const [body, field, message] of cases) {
+      const res = await patchAs(user, task.id, body).expect(400);
+      const parsed = expectMatchesSchema(updateTaskValidationSchema, res.body);
+      expect(parsed.error.fields, JSON.stringify(body)).toEqual({ [field]: message });
+    }
+    const row = await stored(task.id);
+    expect(row).not.toHaveProperty('dueDate');
+    expect(row?.priority).toBe('medium');
+  });
+
+  it('answers 404 for another user task and leaves its date and priority unchanged (AC-7)', async () => {
+    const owner = await signInAs('priya');
+    const intruder = await signInAs('arjun');
+    const task = await seedTask(owner, 'Private', T('2026-03-01T09:00:00.000Z'));
+    await patchAs(intruder, task.id, { dueDate: '2026-11-20', priority: 'high' }).expect(404);
+    const row = await stored(task.id);
+    expect(row).not.toHaveProperty('dueDate');
+    expect(row?.priority).toBe('medium');
   });
 });
