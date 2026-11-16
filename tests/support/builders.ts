@@ -7,12 +7,13 @@ export function build<T extends object>(defaults: T, overrides: Partial<T> = {})
   return { ...structuredClone(defaults), ...overrides };
 }
 
-/** A task row as the model stores it. `dueDate` is left out unless given, like a task added without one. */
+/** A task row as the model stores it. `dueDate` and `notes` are left out unless given, like a task added without them. */
 export interface TaskRowOverrides {
   title: string;
   status: TaskStatus;
   priority: TaskPriority;
   dueDate: string;
+  notes: string;
   createdAt: Date;
 }
 

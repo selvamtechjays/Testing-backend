@@ -27,3 +27,15 @@ describe('contract: PATCH /api/tasks/:id with a due date and priority (EP-TASK-0
     }
   });
 });
+
+describe('contract: PATCH /api/tasks/:id with notes (EP-TASK-03, Task-24)', () => {
+  it('refuses a caller with no session using the 401 envelope, even with notes in the body', async () => {
+    for (const body of [{ notes: null }, { notes: 'x'.repeat(1001) }, { notes: 42 }]) {
+      const res = await request(createTestApp())
+        .patch('/api/tasks/0123456789abcdef01234567')
+        .send(body)
+        .expect(401);
+      expectMatchesSchema(unauthenticatedSchema, res.body);
+    }
+  });
+});

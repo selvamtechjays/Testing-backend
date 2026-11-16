@@ -6,6 +6,7 @@ import { ApiError } from '../../src/lib/apiError.js';
 import { TITLE_MESSAGES } from '../../src/lib/taskTitle.js';
 import { TASK_ID_PATTERN } from '../../src/lib/taskId.js';
 import { TASK_FIELD_MESSAGES } from '../../src/lib/taskFields.js';
+import { NOTES_MESSAGES } from '../../src/lib/taskNotes.js';
 import { UPDATE_MESSAGES, createUpdateTaskSchema } from '../../src/lib/taskUpdate.js';
 
 const NOW = new Date('2026-11-16T12:00:00.000Z');
@@ -60,7 +61,7 @@ describe('update body rule (FEAT-TASK-02, BR-1, BR-2, BR-3)', () => {
 
   it('refuses a body with neither a title nor a status', () => {
     expect(refusedFields({})).toEqual({ body: UPDATE_MESSAGES.empty });
-    expect(refusedFields({ notes: 'x' })).toEqual({ body: UPDATE_MESSAGES.empty });
+    expect(refusedFields({ description: 'x' })).toEqual({ body: UPDATE_MESSAGES.empty });
   });
 
   it('strips ownerId, createdAt and other keys instead of passing them on', () => {
@@ -68,15 +69,15 @@ describe('update body rule (FEAT-TASK-02, BR-1, BR-2, BR-3)', () => {
       status: 'completed',
       ownerId: 'abc',
       createdAt: '2000-01-01T00:00:00.000Z',
-      notes: 'n',
+      description: 'n',
     });
     expect(parsed).toEqual({ status: 'completed' });
   });
 });
 
 describe('update body rule for due date and priority (Task-23, AC-3, AC-4)', () => {
-  it('names all four editable fields in the empty-body message', () => {
-    expect(UPDATE_MESSAGES.empty).toBe('Provide a title, status, due date or priority');
+  it('names every editable field in the empty-body message (DEC-241)', () => {
+    expect(UPDATE_MESSAGES.empty).toBe('Provide a title, status, due date, priority or notes');
     expect(refusedFields({})).toEqual({ body: UPDATE_MESSAGES.empty });
   });
 
@@ -91,8 +92,14 @@ describe('update body rule for due date and priority (Task-23, AC-3, AC-4)', () 
     expect(parseBody(updateTaskSchema, { dueDate: null })).toEqual({ dueDate: null });
   });
 
-  it('accepts all four fields together', () => {
-    const body = { title: 'x', status: 'completed', dueDate: '2026-11-20', priority: 'low' };
+  it('accepts all five fields together', () => {
+    const body = {
+      title: 'x',
+      status: 'completed',
+      dueDate: '2026-11-20',
+      priority: 'low',
+      notes: 'Call Ravi',
+    };
     expect(parseBody(updateTaskSchema, body)).toEqual(body);
   });
 
@@ -113,6 +120,42 @@ describe('update body rule for due date and priority (Task-23, AC-3, AC-4)', () 
   it('refuses the priority "urgent", with the field named (AC-4)', () => {
     expect(refusedFields({ priority: 'urgent' })).toEqual({
       priority: TASK_FIELD_MESSAGES.priority,
+    });
+  });
+});
+
+describe('update body rule for notes (Task-24, AC-2, AC-3)', () => {
+  it('accepts notes alone and counts it as a provided field (AC-2)', () => {
+    expect(parseBody(updateTaskSchema, { notes: 'Call Ravi 98400 12345' })).toEqual({
+      notes: 'Call Ravi 98400 12345',
+    });
+  });
+
+  it('accepts null, which clears the notes, and counts it as a provided field (AC-2)', () => {
+    expect(parseBody(updateTaskSchema, { notes: null })).toEqual({ notes: null });
+  });
+
+  it('turns empty and whitespace-only notes into null, so they clear the notes (AC-3)', () => {
+    expect(parseBody(updateTaskSchema, { notes: '' })).toEqual({ notes: null });
+    expect(parseBody(updateTaskSchema, { notes: '  \n\t ' })).toEqual({ notes: null });
+  });
+
+  it('refuses notes of 1001 characters, naming notes (AC-3)', () => {
+    expect(refusedFields({ notes: 'x'.repeat(1001) })).toEqual({ notes: NOTES_MESSAGES.tooLong });
+  });
+
+  it('refuses notes that are not text, naming notes (AC-3)', () => {
+    for (const notes of [42, true, ['a'], { a: 1 }]) {
+      expect(refusedFields({ notes }), JSON.stringify(notes)).toEqual({
+        notes: NOTES_MESSAGES.type,
+      });
+    }
+  });
+
+  it('names notes beside another refused field instead of hiding either', () => {
+    expect(refusedFields({ priority: 'urgent', notes: 'x'.repeat(1001) })).toEqual({
+      priority: TASK_FIELD_MESSAGES.priority,
+      notes: NOTES_MESSAGES.tooLong,
     });
   });
 });

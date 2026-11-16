@@ -8,6 +8,7 @@ import { parseBody } from '../lib/parseBody.js';
 import { TASK_ID_PATTERN, TASK_NOT_FOUND } from '../lib/taskId.js';
 import { listQuerySchema } from '../lib/taskSearch.js';
 import { dueDateSchema, prioritySchema } from '../lib/taskFields.js';
+import { notesSchema } from '../lib/taskNotes.js';
 import { taskTitleSchema } from '../lib/taskTitle.js';
 import { createUpdateTaskSchema } from '../lib/taskUpdate.js';
 import { createTask, deleteTask, listTasks, updateTask } from '../services/tasks.js';
@@ -16,13 +17,14 @@ export interface TasksDeps {
   clock: () => Date;
 }
 
-// Unknown body fields (status, ownerId, notes, ...) are stripped, never stored and never an error. A null due date
-// is the same as leaving it out. The clock is injected for the due-date limit.
+// Unknown body fields (status, ownerId, ...) are stripped, never stored and never an error. A null due date or
+// null/empty notes is the same as leaving it out. The clock is injected for the due-date limit.
 function createTaskSchema(now: Date) {
   return z.object({
     title: taskTitleSchema,
     dueDate: dueDateSchema(now).nullable().optional(),
     priority: prioritySchema.optional(),
+    notes: notesSchema,
   });
 }
 
