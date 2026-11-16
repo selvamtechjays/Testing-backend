@@ -13,6 +13,15 @@ describe('contract: GET /api/tasks (EP-TASK-01)', () => {
   });
 });
 
+describe('contract: GET /api/tasks?search= (EP-TASK-01)', () => {
+  it('refuses a caller with no session using the 401 envelope, whatever the search is', async () => {
+    for (const query of ['search=milk', 'search=', `search=${'x'.repeat(101)}`]) {
+      const res = await request(createTestApp()).get(`/api/tasks?${query}`).expect(401);
+      expectMatchesSchema(unauthenticatedSchema, res.body);
+    }
+  });
+});
+
 describe('contract: POST /api/tasks (EP-TASK-02)', () => {
   it('refuses a caller with no session using the 401 envelope', async () => {
     const res = await request(createTestApp())

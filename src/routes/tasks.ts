@@ -6,6 +6,7 @@ import { ApiError } from '../lib/apiError.js';
 import { asRecord } from '../lib/asRecord.js';
 import { parseBody } from '../lib/parseBody.js';
 import { TASK_ID_PATTERN, TASK_NOT_FOUND } from '../lib/taskId.js';
+import { listQuerySchema } from '../lib/taskSearch.js';
 import { taskTitleSchema } from '../lib/taskTitle.js';
 import { updateTaskSchema } from '../lib/taskUpdate.js';
 import { createTask, deleteTask, listTasks, updateTask } from '../services/tasks.js';
@@ -34,8 +35,9 @@ function taskIdOf(rawId: unknown): string {
 export function createTasksRouter(deps: TasksDeps): Router {
   const router = Router();
   const requireSession = createRequireSession({ clock: deps.clock });
-  router.get('/tasks', requireSession, async (_req, res) => {
-    const tasks = await listTasks(ownerOf(res.locals.user));
+  router.get('/tasks', requireSession, async (req, res) => {
+    const { search } = parseBody(listQuerySchema, asRecord(req.query));
+    const tasks = await listTasks(ownerOf(res.locals.user), search);
     res.status(200).json({ tasks });
   });
   router.post('/tasks', requireSession, async (req, res) => {

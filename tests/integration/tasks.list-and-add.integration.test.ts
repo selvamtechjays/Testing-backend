@@ -13,6 +13,7 @@ import {
   createTaskSuccessSchema,
   createTaskValidationSchema,
   listTasksSuccessSchema,
+  searchValidationSchema,
 } from '../support/taskSchemas.js';
 
 const NOW = new Date(SIGN_IN_TIME.getTime() + 60_000);
@@ -221,5 +222,169 @@ describe('list and add tasks against a real database (FEAT-TASK-01)', () => {
     expect(indexes.some((i) => JSON.stringify(i.key) === '{"ownerId":1,"createdAt":-1}')).toBe(
       true,
     );
+  });
+});
+
+describe('search tasks by title against a real database (Task-22, DEC-208)', () => {
+  beforeAll(async () => {
+    await Promise.all([User.init(), Session.init(), Task.init()]);
+  });
+
+  const searchAs = (user: TestUser, query: string) =>
+    request(app()).get(`/api/tasks?${query}`).set('Cookie', user.cookie);
+  const titles = (body: { tasks: { title: string }[] }) => body.tasks.map((t) => t.title);
+
+  async function seedMilkAndRent(user: TestUser) {
+    await seedTask(user, 'Pay rent', new Date('2026-03-01T09:00:00.000Z'));
+    await seedTask(user, 'Buy milk', new Date('2026-03-01T09:30:00.000Z'));
+  }
+
+  it('returns the tasks whose title contains the text and not the others (AC-1)', async () => {
+    const user = await signInAs('priya');
+    await seedMilkAndRent(user);
+    const res = await searchAs(user, 'search=milk').expect(200);
+    const body = expectMatchesSchema(listTasksSuccessSchema, res.body);
+    expect(titles(body)).toEqual(['Buy milk']);
+  });
+
+  it('matches a substring anywhere in the title and keeps newest first (AC-1)', async () => {
+    const user = await signInAs('priya');
+    await seedTask(user, 'milkshake order', new Date('2026-03-01T09:00:00.000Z'));
+    await seedTask(user, 'Pay rent', new Date('2026-03-01T09:15:00.000Z'));
+    await seedTask(user, 'Buy MILK and eggs', new Date('2026-03-01T09:30:00.000Z'));
+    const res = await searchAs(user, 'search=ilk').expect(200);
+    expect(titles(res.body)).toEqual(['Buy MILK and eggs', 'milkshake order']);
+  });
+
+  it('ignores capitals in the search text and in the title (AC-2)', async () => {
+    const user = await signInAs('priya');
+    await seedMilkAndRent(user);
+    for (const query of ['search=MILK', 'search=Milk', 'search=mIlK']) {
+      const res = await searchAs(user, query).expect(200);
+      expect(titles(res.body)).toEqual(['Buy milk']);
+    }
+  });
+
+  it('trims the search text before matching (AC-1)', async () => {
+    const user = await signInAs('priya');
+    await seedMilkAndRent(user);
+    const res = await searchAs(user, `search=${encodeURIComponent('  milk  ')}`).expect(200);
+    expect(titles(res.body)).toEqual(['Buy milk']);
+  });
+
+  it('returns an empty list when nothing matches (AC-7)', async () => {
+    const user = await signInAs('priya');
+    await seedMilkAndRent(user);
+    const res = await searchAs(user, 'search=zebra').expect(200);
+    expect(expectMatchesSchema(listTasksSuccessSchema, res.body).tasks).toEqual([]);
+  });
+
+  it('returns the full list for a missing, empty or whitespace-only search (AC-3)', async () => {
+    const user = await signInAs('priya');
+    await seedMilkAndRent(user);
+    for (const query of ['', 'search', 'search=', `search=${encodeURIComponent('   ')}`]) {
+      const res = await searchAs(user, query).expect(200);
+      expect(titles(res.body)).toEqual(['Buy milk', 'Pay rent']);
+    }
+  });
+
+  it('ignores other query keys (EP-TASK-01 invariants)', async () => {
+    const user = await signInAs('priya');
+    await seedMilkAndRent(user);
+    const res = await searchAs(user, 'page=2&ownerId=abc').expect(200);
+    expect(titles(res.body)).toEqual(['Buy milk', 'Pay rent']);
+  });
+
+  it('accepts search text of exactly 100 characters (AC-4)', async () => {
+    const user = await signInAs('priya');
+    const long = 'x'.repeat(100);
+    await seedTask(user, `${long} tail`, new Date('2026-03-01T09:00:00.000Z'));
+    const res = await searchAs(user, `search=${long}`).expect(200);
+    expect(titles(res.body)).toEqual([`${long} tail`]);
+  });
+
+  it('refuses search text of 101 characters with a validation error naming the limit (AC-4)', async () => {
+    const user = await signInAs('priya');
+    const res = await searchAs(user, `search=${'x'.repeat(101)}`).expect(400);
+    const body = expectMatchesSchema(searchValidationSchema, res.body);
+    expect(body.error.fields.search).toBe('Search text can be at most 100 characters.');
+  });
+
+  it('counts the 100-character limit after the trim (AC-4)', async () => {
+    const user = await signInAs('priya');
+    await searchAs(user, `search=${encodeURIComponent(`  ${'x'.repeat(100)}  `)}`).expect(200);
+  });
+
+  it('refuses a repeated search key with the single-value message', async () => {
+    const user = await signInAs('priya');
+    const res = await searchAs(user, 'search=a&search=b').expect(400);
+    const body = expectMatchesSchema(searchValidationSchema, res.body);
+    expect(body.error.fields.search).toBe('Search text must be a single value.');
+  });
+
+  it('reads bracket syntax as an unrelated key, so no query operator reaches the database', async () => {
+    const user = await signInAs('priya');
+    const other = await signInAs('arjun');
+    await seedMilkAndRent(user);
+    await seedTask(other, 'Arjun secret', new Date('2026-03-01T10:00:00.000Z'));
+    for (const query of ['search[$ne]=x', 'search[$regex]=.*', 'search[$exists]=true']) {
+      const res = await searchAs(user, query).expect(200);
+      expect(titles(res.body), query).toEqual(['Buy milk', 'Pay rent']);
+    }
+  });
+
+  it('matches regex metacharacters literally and never runs the text as a pattern (R-1)', async () => {
+    const user = await signInAs('priya');
+    await seedTask(user, 'Call a.c about (draft)', new Date('2026-03-01T09:00:00.000Z'));
+    await seedTask(user, 'abc budget', new Date('2026-03-01T09:10:00.000Z'));
+    await seedTask(user, 'Cost is $5 + tax [urgent]', new Date('2026-03-01T09:20:00.000Z'));
+    await seedTask(user, 'Done\\later', new Date('2026-03-01T09:30:00.000Z'));
+    const cases: [string, string[]][] = [
+      ['a.c', ['Call a.c about (draft)']],
+      ['.*', []],
+      ['^abc', []],
+      ['(draft)', ['Call a.c about (draft)']],
+      ['$5 + tax [urgent]', ['Cost is $5 + tax [urgent]']],
+      ['\\', ['Done\\later']],
+    ];
+    for (const [text, expected] of cases) {
+      const res = await searchAs(user, `search=${encodeURIComponent(text)}`).expect(200);
+      expect(titles(res.body), `search for ${text}`).toEqual(expected);
+    }
+  });
+
+  it('treats text that is not a valid pattern as plain text rather than failing (R-1)', async () => {
+    const user = await signInAs('priya');
+    await seedTask(user, 'Plain task', new Date('2026-03-01T09:00:00.000Z'));
+    const res = await searchAs(user, `search=${encodeURIComponent('(unclosed[')}`).expect(200);
+    expect(res.body.tasks).toEqual([]);
+  });
+
+  it('never returns another user tasks, whatever the search text is (AC-5, R-3)', async () => {
+    const priya = await signInAs('priya');
+    const arjun = await signInAs('arjun');
+    await seedTask(priya, 'Buy milk', new Date('2026-03-01T09:00:00.000Z'));
+    await seedTask(arjun, 'Buy milk for Arjun', new Date('2026-03-01T09:10:00.000Z'));
+    await seedTask(arjun, 'Arjun secret', new Date('2026-03-01T09:20:00.000Z'));
+    const asPriya = await searchAs(priya, 'search=milk').expect(200);
+    expect(titles(asPriya.body)).toEqual(['Buy milk']);
+    const asArjun = await searchAs(arjun, 'search=milk').expect(200);
+    expect(titles(asArjun.body)).toEqual(['Buy milk for Arjun']);
+    for (const text of ['secret', '.*', 'a', '']) {
+      const res = await searchAs(priya, `search=${encodeURIComponent(text)}`).expect(200);
+      expect(titles(res.body), `priya search for "${text}"`).not.toContain('Arjun secret');
+      expect(titles(res.body), `priya search for "${text}"`).not.toContain('Buy milk for Arjun');
+    }
+  });
+
+  it('includes completed tasks in search results', async () => {
+    const user = await signInAs('priya');
+    await seedTask(user, 'Buy milk', new Date('2026-03-01T09:00:00.000Z'), 'completed');
+    const res = await searchAs(user, 'search=milk').expect(200);
+    expect(res.body.tasks.map((t: { status: string }) => t.status)).toEqual(['completed']);
+  });
+
+  it('refuses a search without a session (AC-5)', async () => {
+    await request(app()).get('/api/tasks?search=milk').expect(401);
   });
 });

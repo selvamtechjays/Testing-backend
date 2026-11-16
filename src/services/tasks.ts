@@ -27,11 +27,22 @@ export function toTaskDto(row: TaskRow): TaskDto {
   };
 }
 
-/** The signed-in owner's tasks, newest first; `_id` descending breaks ties between equal creation times. */
-export async function listTasks(ownerId: string): Promise<TaskDto[]> {
-  const rows = await Task.find({ ownerId: new Types.ObjectId(ownerId) })
-    .sort({ createdAt: -1, _id: -1 })
-    .lean();
+/** Escapes every regex metacharacter so user text is matched as a literal substring, never run as a pattern. */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The signed-in owner's tasks, newest first; `_id` descending breaks ties between equal creation times.
+ * When `search` is given, only tasks whose title contains it (ignoring case) are returned. The owner filter is
+ * always applied, whatever the search text is (BR-6).
+ */
+export async function listTasks(ownerId: string, search?: string): Promise<TaskDto[]> {
+  const filter: { ownerId: Types.ObjectId; title?: { $regex: string; $options: string } } = {
+    ownerId: new Types.ObjectId(ownerId),
+  };
+  if (search) filter.title = { $regex: escapeRegExp(search), $options: 'i' };
+  const rows = await Task.find(filter).sort({ createdAt: -1, _id: -1 }).lean();
   return rows.map(toTaskDto);
 }
 

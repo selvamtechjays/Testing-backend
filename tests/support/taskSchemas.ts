@@ -10,6 +10,20 @@ const taskShape = z.strictObject({
 /** Response contract for GET /api/tasks (EP-TASK-01): strict, so any extra field (ownerId, updatedAt) fails. */
 export const listTasksSuccessSchema = z.strictObject({ tasks: z.array(taskShape) });
 
+/** 400 contract for GET /api/tasks?search= (EP-TASK-01): only `fields.search`, with one of the two shared messages. */
+export const searchValidationSchema = z.strictObject({
+  error: z.strictObject({
+    code: z.literal('VALIDATION'),
+    message: z.literal('Validation failed'),
+    fields: z.strictObject({
+      search: z.enum([
+        'Search text must be a single value.',
+        'Search text can be at most 100 characters.',
+      ]),
+    }),
+  }),
+});
+
 /** Response contract for POST /api/tasks (EP-TASK-02): a new task is always pending. */
 export const createTaskSuccessSchema = z.strictObject({
   task: taskShape.extend({ status: z.literal('pending') }),
