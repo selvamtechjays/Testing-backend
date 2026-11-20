@@ -62,6 +62,19 @@ Stores each user's tasks. The user's list is `tasks where ownerId = user`.
 ## Relationships
 
 - N—1 users (ENT-AUTH-01)
+- N—N tags (ENT-TAG-01) through `tagIds` (DEC-260)
+
+## Planned change — Task tags (designed, not yet built)
+
+Designed by FEAT-TAG-01 and FEAT-TAG-03 (DEC-260, DEC-263). The as-built fields above stay true until `/dev:build` lands the change.
+
+| Name   | Type              | Constraints                                                           | Notes                                                                                                                                                                             | Confidence                       |
+| ------ | ----------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| tagIds | array of ObjectId | optional, at most 5 distinct, each a tag of the same owner (ref tags) | realises DATA-009 (the task-to-tag link); absent or `[]` means no tags; rows written before this field existed lack it and every reader maps a missing value to `[]`; no backfill | Confirmed (built in FEAT-TAG-01) |
+
+- Index: multikey `{ ownerId: 1, tagIds: 1 }` serves the `tag` filter and the per-tag task count; the existing `{ ownerId: 1, createdAt: -1 }` is unchanged.
+- Deleting a task removes its links with it; deleting a tag `$pull`s its id from the owner's tasks (EP-TAG-04). A stray id left by a race is skipped by readers (DEC-262).
+- Relationship: N—N tags (ENT-TAG-01) through `tagIds`.
 
 ## Used by Endpoints
 
@@ -69,6 +82,9 @@ Stores each user's tasks. The user's list is `tasks where ownerId = user`.
 - EP-TASK-02 POST /api/tasks — ../../backend/domains/task/endpoints/create-task.md
 - EP-TASK-03 PATCH /api/tasks/:id — ../../backend/domains/task/endpoints/update-task.md
 - EP-TASK-04 DELETE /api/tasks/:id — ../../backend/domains/task/endpoints/delete-task.md
+- EP-TAG-01 GET /api/tags (reads, taskCount) — ../../backend/domains/tag/endpoints/list-tags.md
+- EP-TAG-03 PATCH /api/tags/:id (reads, taskCount) — ../../backend/domains/tag/endpoints/update-tag.md
+- EP-TAG-04 DELETE /api/tags/:id (writes, `$pull`) — ../../backend/domains/tag/endpoints/delete-tag.md
 
 ## Used by Features
 
@@ -76,6 +92,10 @@ Stores each user's tasks. The user's list is `tasks where ownerId = user`.
 - FEAT-TASK-02 Edit and Complete Task
 - FEAT-TASK-03 Delete Task with Undo
 - FEAT-PLAT-01 Instant Update with Rollback
+- FEAT-TAG-01 Personal tag library (taskCount)
+- FEAT-TAG-02 Manage tags
+- FEAT-TAG-03 Tag tasks from the task list
+- FEAT-TAG-04 Filter the task list by tag
 - FEAT-PLAT-03 Hosting and Backups (backed-up user data: tasks; no endpoint)
 
 ## Data Classification / Retention
@@ -108,3 +128,16 @@ Stores each user's tasks. The user's list is `tasks where ownerId = user`.
 - Test map: context/test-map/task-notes.md
 - [code › src/models/Task.ts:43]
 - [test › tests/integration/tasks.notes.integration.test.ts]
+- Task: Task-25 Personal tag library (DEC-260, DEC-262; FEAT-TAG-01 adds the optional `tagIds` field and its multikey index; nothing reads or writes it yet)
+- Code: src/models/Task.ts:47
+- Test: tests/unit/taskModel.test.ts
+- Test map: context/test-map/task-tags.md
+- Task: Task-29 Tag tasks from the task list (DEC-260, DEC-262; writes `tagIds` through EP-TASK-02 and EP-TASK-03, reads it through EP-TASK-01)
+- Code: src/services/tasks.ts:185
+- Test: tests/integration/tasks.tags.integration.test.ts
+- Task: Task-31 Filter the task list by tag (DEC-259, DEC-262; reads `tagIds` through the multikey index in EP-TASK-01)
+- Code: src/services/tasks.ts:95
+- Test: tests/integration/tasks.tag-filter.integration.test.ts
+- Task: Task-33 Manage tags (a tag delete pulls its id from `tagIds` with one `updateMany`, stamping `updatedAt`)
+- Code: src/services/tags.ts:167
+- Test: tests/integration/tags.update-delete.integration.test.ts

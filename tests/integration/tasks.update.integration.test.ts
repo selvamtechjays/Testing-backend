@@ -122,7 +122,7 @@ describe('edit and complete a task against a real database (FEAT-TASK-02)', () =
     ).toBe('Status must be pending or completed');
     const empty = await patchAs(user, task.id, {}).expect(400);
     expect(expectMatchesSchema(updateTaskValidationSchema, empty.body).error.fields.body).toBe(
-      'Provide a title, status, due date, priority or notes',
+      'Provide a title, status, due date, priority, notes or tags',
     );
     const row = await stored(task.id);
     expect([row?.title, row?.status]).toEqual(['Keep me', 'pending']);

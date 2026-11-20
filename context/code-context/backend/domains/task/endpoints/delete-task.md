@@ -66,6 +66,10 @@ Requires a valid session; the task must be owned by the session user.
 - Consequence: if the tab is closed inside the window the client should flush the pending delete on unload (best effort); otherwise the task survives. Not a data-loss risk; recorded as OQ-TASK-01.
 - If the deferred call fails, the screen rolls back and shows a message (BR-018, FEAT-PLAT-01).
 
+## Task tags (built, FEAT-TAG-03: test only)
+
+Designed by FEAT-TAG-03 (DEC-260). No contract change. The task's tag links live on the task document (`tagIds`), so deleting the task removes them with no extra step and every tag's task count falls by one on its next read (AC-9). The tags are untouched. The build added a test for it (`tests/integration/tasks.tags.integration.test.ts`); a later bulk route needs no tag cleanup for the same reason (R-11).
+
 ## Called by
 
 - PAGE-TASK-01 Task List — ../../../../../../../frontend/context/code-context/frontend/pages/task/task-list.md
@@ -79,6 +83,7 @@ Requires a valid session; the task must be owned by the session user.
 
 - FEAT-TASK-03 Delete Task with Undo
 - FEAT-PLAT-01 Instant Update with Rollback
+- FEAT-TAG-03 Tag tasks from the task list
 
 ## Integrations
 
@@ -98,3 +103,4 @@ Requires a valid session; the task must be owned by the session user.
 - Code: src/services/tasks.ts:221
 - Test: tests/integration/tasks.delete.integration.test.ts
 - Test: tests/contracts/tasks.delete.contract.test.ts
+- Requirement: task-tags — FEAT-TAG-03 (DEC-260; built, no code change, test only)

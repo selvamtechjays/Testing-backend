@@ -1,9 +1,13 @@
 import { z } from 'zod';
 import { isCalendarDate } from './calendarDate.js';
+import { TAG_ID_PATTERN } from './tagId.js';
 import { PRIORITIES, TASK_FIELD_MESSAGES, TASK_STATUSES } from './taskFields.js';
 import { UPDATE_MESSAGES } from './taskUpdate.js';
 
 export const SEARCH_MAX = 100;
+
+/** The `tag` value that means "only tasks with no tags". */
+export const TAG_NONE = 'none';
 
 const DUE_FILTERS = ['overdue', 'today', 'week', 'none'] as const;
 const SORT_ORDERS = ['newest', 'due', 'priority'] as const;
@@ -21,6 +25,7 @@ export const LIST_QUERY_MESSAGES = {
   sort: 'Sort must be newest, due or priority.',
   todayInvalid: 'Today must be a real date in YYYY-MM-DD form.',
   todayRequired: "Send today's date with this due filter.",
+  tag: 'Tag must be none or one of your own tags.',
 } as const;
 
 /** A repeated key arrives as a list; it is refused under its own name, as `search` is. */
@@ -30,6 +35,7 @@ export const LIST_QUERY_SINGLE_MESSAGES = {
   due: 'Due filter must be a single value.',
   sort: 'Sort must be a single value.',
   today: 'Today must be a single value.',
+  tag: 'Tag must be a single value.',
 } as const;
 
 /** The refusal message for a key: its single-value message for a repeated key, otherwise its invalid-value one. */
@@ -42,6 +48,7 @@ function messageFor(single: string, invalid: string) {
  * (`?search=a&search=b`) arrives as a list and is refused under its own name.
  *  - `search`: trimmed, then at most 100 characters; missing, empty or whitespace-only means "no search".
  *  - `status`, `priority`, `due`, `sort`: one value from their list; a missing key means "all" / `newest`.
+ *  - `tag`: `none` (tasks with no tags) or one 24-hex tag id; a repeated key is refused under its own name.
  *  - `today`: the caller's local date, a real `YYYY-MM-DD`; the server never uses its own clock for it (DEC-218).
  * A due filter of overdue, today or week without `today` is refused under `today`. Unknown keys are stripped.
  */
@@ -78,6 +85,14 @@ export const listQuerySchema = z
         error: messageFor(LIST_QUERY_SINGLE_MESSAGES.today, LIST_QUERY_MESSAGES.todayInvalid),
       })
       .refine(isCalendarDate, { message: LIST_QUERY_MESSAGES.todayInvalid })
+      .optional(),
+    // `none` or a 24-hex tag id. Whether an id is one of the caller's own tags is the service's check, so an
+    // unknown and another user's id get the same answer as a malformed one (BR-3).
+    tag: z
+      .string({ error: messageFor(LIST_QUERY_SINGLE_MESSAGES.tag, LIST_QUERY_MESSAGES.tag) })
+      .refine((value) => value === TAG_NONE || TAG_ID_PATTERN.test(value), {
+        message: LIST_QUERY_MESSAGES.tag,
+      })
       .optional(),
   })
   // `when` keeps this check running beside a refused field, so `?due=week&status=bogus` reports both. A refused

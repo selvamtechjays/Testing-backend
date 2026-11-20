@@ -262,7 +262,7 @@ describe('task notes against a real database (Task-24)', () => {
       await patchAs(user, task.id, { notes: null }).expect(200);
       const empty = await patchAs(user, task.id, {}).expect(400);
       expect(expectMatchesSchema(updateTaskValidationSchema, empty.body).error.fields.body).toBe(
-        'Provide a title, status, due date, priority or notes',
+        'Provide a title, status, due date, priority, notes or tags',
       );
     });
   });
