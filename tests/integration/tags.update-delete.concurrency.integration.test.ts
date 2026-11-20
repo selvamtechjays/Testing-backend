@@ -50,18 +50,6 @@ describe('simultaneous tag renames and deletes against a real database (Task-33,
     }
   });
 
-  it('refuses a rename that arrives after a delete of the same tag, as not found (AC-18, NFR concurrency)', async () => {
-    const user = await signInAs('priya');
-    const [tag] = await Tag.insertMany([buildTagRow(user.id, { name: 'Gone' })]);
-    await deleteAs(user, tag?.id).expect(204);
-    const results = await Promise.all([
-      patchAs(user, tag?.id, { name: 'late' }),
-      patchAs(user, tag?.id, { colour: 'red' }),
-    ]);
-    expect(results.map((r) => r.status)).toEqual([404, 404]);
-    expect(await Tag.countDocuments()).toBe(0);
-  });
-
   it('leaves a consistent result when a rename and a delete of one tag race: no tag, or a renamed one (AC-18)', async () => {
     const user = await signInAs('priya');
     for (let round = 0; round < 5; round += 1) {

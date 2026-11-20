@@ -285,6 +285,18 @@ describe('rename, recolour and delete tags against a real database (Task-33, FEA
       const created = await createTagAs(user, { name: 'fits again' }).expect(201);
       expect((await storedTag(created.body.tag.id))?.slot).toBe(7);
     });
+
+    it('refuses a rename that arrives after a delete of the same tag, as not found, whichever of two renames arrives (AC-18, NFR-1)', async () => {
+      const user = await signInAs('priya');
+      const [tag] = await Tag.insertMany([buildTagRow(user.id, { name: 'Gone' })]);
+      await deleteAs(user, tag?.id).expect(204);
+      const results = await Promise.all([
+        patchAs(user, tag?.id, { name: 'late' }),
+        patchAs(user, tag?.id, { colour: 'red' }),
+      ]);
+      expect(results.map((r) => r.status)).toEqual([404, 404]);
+      expect(await Tag.countDocuments()).toBe(0);
+    });
   });
 
   describe('ids and access (AC-13 to AC-15)', () => {
@@ -306,7 +318,7 @@ describe('rename, recolour and delete tags against a real database (Task-33, FEA
           malformed ? 404 : 400,
         );
         if (malformed) expect(invalid.body, String(id)).toEqual(valid.body);
-        else invalidBodies.push(invalid.body);
+        else invalidBodies.push(expectMatchesSchema(updateTagValidationSchema, invalid.body));
         renames.push(valid.body);
         deletes.push((await deleteAs(user, String(id)).expect(404)).body);
       }
