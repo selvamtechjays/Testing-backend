@@ -13,6 +13,7 @@ export interface TaskDto {
   createdAt: string;
   dueDate: string | null;
   priority: TaskPriority;
+  notes: string | null;
 }
 
 /** The body of `GET /api/tasks`; `overdueCount` is present only when the caller sent `today` (DEC-212). */
@@ -29,6 +30,7 @@ interface TaskRow {
   // `.lean()` and aggregation skip the model defaults, so rows from before these fields existed lack them.
   dueDate?: string | null;
   priority?: TaskPriority;
+  notes?: string | null;
 }
 
 /**
@@ -44,6 +46,7 @@ export function toTaskDto(row: TaskRow): TaskDto {
     createdAt: row.createdAt.toISOString(),
     dueDate: row.dueDate ?? null,
     priority: row.priority ?? 'medium',
+    notes: row.notes ?? null,
   };
 }
 
@@ -166,6 +169,8 @@ export interface NewTask {
   /** `null` is the same as leaving it out: the task has no due date. */
   dueDate?: string | null;
   priority?: TaskPriority;
+  /** `null` or empty is the same as leaving it out: the task has no notes. */
+  notes?: string | null;
 }
 
 /** Adds a pending task for the owner. Status and owner are never taken from the request body. */
@@ -176,6 +181,7 @@ export async function createTask(ownerId: string, input: NewTask, now: Date): Pr
     status: 'pending',
     ...(input.dueDate ? { dueDate: input.dueDate } : {}),
     ...(input.priority ? { priority: input.priority } : {}),
+    ...(input.notes ? { notes: input.notes } : {}),
     createdAt: now,
     updatedAt: now,
   });
@@ -188,12 +194,15 @@ export interface TaskChanges {
   /** A date sets it; `null` removes it. */
   dueDate?: string | null;
   priority?: TaskPriority;
+  /** A string sets it; `null` removes it. */
+  notes?: string | null;
 }
 
 /**
- * Applies a title, status, due date and/or priority change in one atomic write filtered by id AND owner, so
- * another user's task is indistinguishable from a missing one (404). Only the given fields and `updatedAt` (from
- * the injected clock) are written; createdAt and ownerId never are. A `null` due date is removed, not stored.
+ * Applies a title, status, due date, priority and/or notes change in one atomic write filtered by id
+ * AND owner, so another user's task is indistinguishable from a missing one (404). Only the given
+ * fields and `updatedAt` (from the injected clock) are written; createdAt and ownerId never are. A
+ * `null` due date or `null` notes is removed, not stored.
  * Setting a field to its current value succeeds.
  */
 export async function updateTask(
@@ -202,12 +211,17 @@ export async function updateTask(
   changes: TaskChanges,
   now: Date,
 ): Promise<TaskDto> {
-  const { dueDate, ...rest } = changes;
+  const { dueDate, notes, ...rest } = changes;
   const set: Record<string, unknown> = { ...rest, updatedAt: now };
-  if (typeof dueDate === 'string') set.dueDate = dueDate;
+  const unset: Record<string, ''> = {};
+  // A date or text sets the field; `null` removes it, so a cleared field is absent and never stored empty.
+  for (const [field, value] of Object.entries({ dueDate, notes })) {
+    if (typeof value === 'string') set[field] = value;
+    else if (value === null) unset[field] = '';
+  }
   const updated = await Task.findOneAndUpdate(
     { _id: new Types.ObjectId(taskId), ownerId: new Types.ObjectId(ownerId) },
-    dueDate === null ? { $set: set, $unset: { dueDate: '' } } : { $set: set },
+    Object.keys(unset).length > 0 ? { $set: set, $unset: unset } : { $set: set },
     { returnDocument: 'after', runValidators: true },
   ).lean();
   if (!updated) throw new ApiError(404, 'NOT_FOUND', TASK_NOT_FOUND);

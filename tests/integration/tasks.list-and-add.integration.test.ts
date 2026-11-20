@@ -152,19 +152,20 @@ describe('list and add tasks against a real database (FEAT-TASK-01)', () => {
     expect(await Task.countDocuments({ ownerId: new mongoose.Types.ObjectId(other.id) })).toBe(0);
   });
 
-  // Task-23 supersedes the old "no due date or priority" rule (DEC-215): those two are now stored.
-  it('stores no description or notes: only title, status, owner, times, due date and priority (AC-8, BR-1, DEC-215)', async () => {
+  // Task-23 supersedes the old "no due date or priority" rule (DEC-215): those two are now stored. Task-24
+  // supersedes "notes are stripped" for `notes` only (DEC-240); other unknown keys such as description still are.
+  it('stores no description: only title, status, owner, times, due date and priority when no notes are sent (AC-8, BR-1, DEC-215)', async () => {
     const user = await signInAs('priya');
     const res = await addAs(user, {
       title: 'Just a title',
       description: 'd',
-      notes: 'n',
       dueDate: '2026-04-01',
       priority: 'high',
     }).expect(201);
     expect(Object.keys(res.body.task).sort()).toEqual(
-      ['createdAt', 'dueDate', 'id', 'priority', 'status', 'title'].sort(),
+      ['createdAt', 'dueDate', 'id', 'notes', 'priority', 'status', 'title'].sort(),
     );
+    expect(res.body.task.notes).toBeNull();
     const raw = await Task.collection.findOne({
       _id: new mongoose.Types.ObjectId(res.body.task.id),
     });

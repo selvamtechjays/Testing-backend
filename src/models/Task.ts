@@ -7,6 +7,7 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from '../lib/taskFields.js';
+import { NOTES_MAX } from '../lib/taskNotes.js';
 
 export type { TaskStatus };
 
@@ -18,6 +19,8 @@ export interface TaskDoc {
   dueDate?: string;
   /** Rows from before this field existed lack it; readers treat a missing value as medium (DEC-210). */
   priority?: TaskPriority;
+  /** Absent when the task has no notes: a clear removes the field, it never stores an empty string (DEC-240). */
+  notes?: string;
   createdAt: Date;
   /** Set from the injected clock by the service on every create and change; never read by the API. */
   updatedAt: Date;
@@ -36,6 +39,8 @@ const taskSchema = new Schema<TaskDoc>(
     },
     // `.lean()` reads skip this default, so every reader maps a missing value to medium itself (DEC-210).
     priority: { type: String, enum: PRIORITIES, default: 'medium' },
+    // Optional with no default, so a task added without notes stores no field and old rows need no backfill.
+    notes: { type: String, maxlength: NOTES_MAX },
     createdAt: { type: Date, required: true },
     updatedAt: { type: Date, required: true },
   },

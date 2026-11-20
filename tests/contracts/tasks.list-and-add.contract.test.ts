@@ -55,3 +55,13 @@ describe('contract: POST /api/tasks with a due date and priority (EP-TASK-02, Ta
     expectMatchesSchema(unauthenticatedSchema, res.body);
   });
 });
+
+describe('contract: POST /api/tasks with notes (EP-TASK-02, Task-24)', () => {
+  it('refuses a caller with no session using the 401 envelope, even with notes in the body', async () => {
+    const res = await request(createTestApp())
+      .post('/api/tasks')
+      .send({ title: 'x', notes: 'x'.repeat(1001) })
+      .expect(401);
+    expectMatchesSchema(unauthenticatedSchema, res.body);
+  });
+});

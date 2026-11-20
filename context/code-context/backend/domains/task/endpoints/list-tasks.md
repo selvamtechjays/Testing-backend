@@ -11,12 +11,12 @@ implementation_state: Implemented
 origin: implemented
 generated_at: 2026-11-06
 design_confidence: Confirmed
-implemented_at: 2026-11-16T07:40:00Z
-implemented_by_commit: d7158d3e82c56b07b40fb445062ff22a4c482e69
-implemented_by_task: TASK-DUE-DATES-PRIORITY-FILTERS
+implemented_at: 2026-11-16T13:07:15Z
+implemented_by_commit: cbd69cbb05f298f0448e50e0cf52814f5e1cbd78
+implemented_by_task: TASK-TASK-NOTES
 mapped_from: src/routes/tasks.ts
-mapped_from_line: 46
-mapped_from_commit: d7158d3e82c56b07b40fb445062ff22a4c482e69
+mapped_from_line: 48
+mapped_from_commit: cbd69cbb05f298f0448e50e0cf52814f5e1cbd78
 ---
 
 # Endpoint: List My Tasks
@@ -62,7 +62,7 @@ Meaning of the filters: `overdue` is `dueDate < today` and status pending; `toda
 
 ## Response
 
-- `200 OK` → `{ tasks: [ { id, title, status: "pending" | "completed", createdAt, dueDate: "YYYY-MM-DD" | null, priority: "low" | "medium" | "high" } ], overdueCount? }`. A task stored before these fields existed reads as `dueDate: null`, `priority: "medium"` (DEC-210). Default order is createdAt descending, tie-break id descending (BR-026). Empty array for a new user (drives the empty-state prompt) and when nothing matches. `overdueCount` is present only when `today` was sent: the owner's pending tasks due before `today`, counting all of the owner's tasks whatever the filters and search are (DEC-212).
+- `200 OK` → `{ tasks: [ { id, title, status: "pending" | "completed", createdAt, dueDate: "YYYY-MM-DD" | null, priority: "low" | "medium" | "high", notes: string | null } ], overdueCount? }`. A task stored before these fields existed reads as `dueDate: null`, `priority: "medium"` (DEC-210) and `notes: null` (DEC-240); `toTaskDto` is the one place a missing value is mapped, so `.lean()` and the sort aggregations need no change. Default order is createdAt descending, tie-break id descending (BR-026). Empty array for a new user (drives the empty-state prompt) and when nothing matches. `overdueCount` is present only when `today` was sent: the owner's pending tasks due before `today`, counting all of the owner's tasks whatever the filters and search are (DEC-212).
 - `400 VALIDATION` → `Validation failed` with one `fields.<key>` per refused key: `search` ("Search text must be a single value." / "Search text can be at most 100 characters."), `status` ("Status must be pending or completed", the same string PATCH uses), `priority` ("Priority must be low, medium or high."), `due` ("Due filter must be overdue, today, week or none."), `sort` ("Sort must be newest, due or priority."), a repeated `status`, `priority`, `due`, `sort` or `today` key gets "<Field> must be a single value."; `today` ("Today must be a real date in YYYY-MM-DD form." / "Send today's date with this due filter." when `due` is overdue/today/week and `today` is missing)
 - `401` no valid session
 - Response shape: Assumed
@@ -76,7 +76,7 @@ Requires a valid session; results scoped to the session user (BR-025).
 - Only tasks whose owner is the session user are returned; never another user's (BR-025, DEC-031).
 - Completed tasks are not hidden (BR-008).
 - The owner filter is unconditional: it is applied whatever the search text is, so a search never widens what a user can see (Task-22 AC-5).
-- Only titles are searched; capitals are ignored; a missing, empty or whitespace-only `search` returns the full list (Task-22 AC-1..AC-4).
+- Only titles are searched, never notes: a word found only in a task's notes does not return it (Task-24 AC-4); capitals are ignored; a missing, empty or whitespace-only `search` returns the full list (Task-22 AC-1..AC-4).
 - Status, priority, due, sort and search all combine, and the owner filter stays first in the match, the aggregation and the overdue count (Task-23 AC-7).
 - A due filter without `today` is refused; the server never decides what "today" is (Task-23 AC-8, DEC-218).
 
@@ -109,11 +109,16 @@ Requires a valid session; results scoped to the session user (BR-025).
 - Data: DATA-004
 - Task: Task-22 Search tasks by title (DEC-208)
 - Task: Task-23 Due dates, priority, and list filters (DEC-210, DEC-212, DEC-214, DEC-216, DEC-218)
-- Code: src/routes/tasks.ts:46
-- Code: src/services/tasks.ts:155
+- Task: Task-24 Task notes (DEC-240, DEC-241)
+- Code: src/routes/tasks.ts:48
+- Code: src/services/tasks.ts:158
 - Code: src/lib/taskSearch.ts:48
 - Test: tests/integration/tasks.list-and-add.integration.test.ts
 - Test: tests/integration/tasks.filters.integration.test.ts
+- Test: tests/integration/tasks.notes.integration.test.ts
 - Test: tests/contracts/tasks.list-and-add.contract.test.ts
 - Test: tests/unit/taskSearch.test.ts
 - Test map: context/test-map/due-dates-priority-filters.md
+- Test map: context/test-map/task-notes.md
+- [code › src/routes/tasks.ts:48]
+- [test › tests/integration/tasks.notes.integration.test.ts]

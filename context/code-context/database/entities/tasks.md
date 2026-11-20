@@ -8,12 +8,12 @@ implementation_state: Implemented
 origin: implemented
 generated_at: 2026-11-06
 design_confidence: Confirmed
-implemented_at: 2026-11-16T07:40:00Z
-implemented_by_commit: d7158d3e82c56b07b40fb445062ff22a4c482e69
-implemented_by_task: TASK-DUE-DATES-PRIORITY-FILTERS
+implemented_at: 2026-11-16T13:07:15Z
+implemented_by_commit: cbd69cbb05f298f0448e50e0cf52814f5e1cbd78
+implemented_by_task: TASK-TASK-NOTES
 mapped_from: src/models/Task.ts
-mapped_from_line: 48
-mapped_from_commit: d7158d3e82c56b07b40fb445062ff22a4c482e69
+mapped_from_line: 43
+mapped_from_commit: cbd69cbb05f298f0448e50e0cf52814f5e1cbd78
 ---
 
 # Entity: tasks
@@ -40,22 +40,24 @@ Stores each user's tasks. The user's list is `tasks where ownerId = user`.
 
 ## Columns / Fields
 
-| Name      | Type     | Constraints                                           | Notes                                                                                                                                                       | Confidence                           |
-| --------- | -------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| _id       | ObjectId | PK                                                    | exposed as `id`                                                                                                                                             | Assumed                              |
-| ownerId   | ObjectId | required, ref users, indexed                          | privacy boundary (BR-025)                                                                                                                                   | Confirmed (DATA-004 owner)           |
-| title     | string   | required, 1 to 200 chars after trim                   | BR-016                                                                                                                                                      | Confirmed                            |
-| status    | enum     | required, default `pending`; `pending` / `completed`  |                                                                                                                                                             | Confirmed (BR-008, BR-016)           |
-| dueDate   | string   | optional, `YYYY-MM-DD`; absent when the task has none | a calendar date, never a Date, so it cannot shift with a time zone (DEC-214); cleared with `$unset`                                                         | Confirmed (Task-23 AC-2, AC-3, AC-9) |
-| priority  | enum     | `low` / `medium` / `high`, default `medium`           | rows written before this field existed lack it; every reader maps a missing value to `medium` (DEC-210), because `.lean()` and aggregation skip the default | Confirmed (Task-23 AC-1)             |
-| createdAt | Date     | required, default now                                 | ordering key (BR-026)                                                                                                                                       | Confirmed                            |
-| updatedAt | Date     | required                                              | Mongoose timestamps                                                                                                                                         | Assumed                              |
+| Name      | Type     | Constraints                                                               | Notes                                                                                                                                                                                                                  | Confidence                           |
+| --------- | -------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| _id       | ObjectId | PK                                                                        | exposed as `id`                                                                                                                                                                                                        | Assumed                              |
+| ownerId   | ObjectId | required, ref users, indexed                                              | privacy boundary (BR-025)                                                                                                                                                                                              | Confirmed (DATA-004 owner)           |
+| title     | string   | required, 1 to 200 chars after trim                                       | BR-016                                                                                                                                                                                                                 | Confirmed                            |
+| status    | enum     | required, default `pending`; `pending` / `completed`                      |                                                                                                                                                                                                                        | Confirmed (BR-008, BR-016)           |
+| dueDate   | string   | optional, `YYYY-MM-DD`; absent when the task has none                     | a calendar date, never a Date, so it cannot shift with a time zone (DEC-214); cleared with `$unset`                                                                                                                    | Confirmed (Task-23 AC-2, AC-3, AC-9) |
+| priority  | enum     | `low` / `medium` / `high`, default `medium`                               | rows written before this field existed lack it; every reader maps a missing value to `medium` (DEC-210), because `.lean()` and aggregation skip the default                                                            | Confirmed (Task-23 AC-1)             |
+| notes     | string   | optional, at most 1000 chars (`maxlength`); absent when the task has none | plain text, trimmed; cleared with `$unset`, never stored empty (DEC-240); rows written before this field existed lack it and `toTaskDto` reads them as `null`, because `.lean()` and aggregation return rows as stored | Confirmed (Task-24 AC-1, AC-2, AC-3) |
+| createdAt | Date     | required, default now                                                     | ordering key (BR-026)                                                                                                                                                                                                  | Confirmed                            |
+| updatedAt | Date     | required                                                                  | Mongoose timestamps                                                                                                                                                                                                    | Assumed                              |
 
 ## Keys & Indexes
 
 - PK: `_id`
 - Compound index: `{ ownerId: 1, createdAt: -1 }` (list newest first per user). No index was added for `dueDate` or `priority`: every list narrows to one owner first (DEC-216).
-- Migration: none. Existing rows are not rewritten (DEC-210); dual-read of a missing `priority` and `dueDate` is permanent.
+- No index for `notes`: notes are never queried or searched (Task-24).
+- Migration: none. Existing rows are not rewritten (DEC-210, DEC-240); dual-read of a missing `priority`, `dueDate` and `notes` is permanent.
 
 ## Relationships
 
@@ -78,7 +80,7 @@ Stores each user's tasks. The user's list is `tasks where ownerId = user`.
 
 ## Data Classification / Retention
 
-- Personal data. Completed tasks never auto-deleted (BR-008); deletion is a hard delete (BR-010). Backup: interim daily, kept 7 days (ASM-022).
+- Personal data, notes included: notes are never logged. Completed tasks never auto-deleted (BR-008); deletion is a hard delete (BR-010). Backup: interim daily, kept 7 days (ASM-022).
 
 ## Open Questions
 
@@ -93,8 +95,16 @@ Stores each user's tasks. The user's list is `tasks where ownerId = user`.
 - Test: tests/integration/tasks.list-and-add.integration.test.ts
 - Code: src/services/tasks.ts:199
 - Test: tests/integration/tasks.update.integration.test.ts
-- Code: src/services/tasks.ts:221
+- Code: src/services/tasks.ts:222
 - Task: Task-23 Due dates, priority, and list filters (DEC-210, DEC-214, DEC-215, DEC-216)
 - Code: src/models/Task.ts:26
 - Test: tests/integration/tasks.filters.integration.test.ts
 - Test: tests/integration/tasks.delete.integration.test.ts
+- Task: Task-24 Task notes (DEC-240)
+- Code: src/models/Task.ts:43
+- Code: src/lib/taskNotes.ts
+- Test: tests/integration/tasks.notes.integration.test.ts
+- Test: tests/unit/taskModel.test.ts
+- Test map: context/test-map/task-notes.md
+- [code › src/models/Task.ts:43]
+- [test › tests/integration/tasks.notes.integration.test.ts]

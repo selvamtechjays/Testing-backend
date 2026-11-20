@@ -10,6 +10,8 @@ const taskShape = z.strictObject({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable(),
   priority: z.enum(['low', 'medium', 'high']),
+  // Always present on the wire: text of 1 to 1000 characters, or null for a task with no notes (DEC-240).
+  notes: z.string().min(1).max(1000).nullable(),
 });
 
 /** Response contract for GET /api/tasks (EP-TASK-01): strict, so any extra field (ownerId, updatedAt) fails. */
@@ -55,6 +57,8 @@ export const listFilterValidationSchema = z.strictObject({
   }),
 });
 
+const notesMessages = ['Notes must be text.', 'Notes can be at most 1000 characters.'] as const;
+
 const dueDateMessages = [
   'Due date must be a real date in YYYY-MM-DD form.',
   'Due date can be at most 5 years ahead.',
@@ -70,12 +74,13 @@ export const createTaskValidationSchema = z.strictObject({
     code: z.literal('VALIDATION'),
     message: z.string().min(1),
     fields: z.partialRecord(
-      z.enum(['title', 'dueDate', 'priority']),
+      z.enum(['title', 'dueDate', 'priority', 'notes']),
       z.enum([
         'Enter a title.',
         'Titles can be at most 200 characters.',
         ...dueDateMessages,
         'Priority must be low, medium or high.',
+        ...notesMessages,
       ]),
     ),
   }),
@@ -89,14 +94,15 @@ export const updateTaskValidationSchema = z.strictObject({
     code: z.literal('VALIDATION'),
     message: z.string().min(1),
     fields: z.partialRecord(
-      z.enum(['title', 'status', 'dueDate', 'priority', 'body']),
+      z.enum(['title', 'status', 'dueDate', 'priority', 'notes', 'body']),
       z.enum([
         'Enter a title.',
         'Titles can be at most 200 characters.',
         'Status must be pending or completed',
         ...dueDateMessages,
         'Priority must be low, medium or high.',
-        'Provide a title, status, due date or priority',
+        ...notesMessages,
+        'Provide a title, status, due date, priority or notes',
       ]),
     ),
   }),
