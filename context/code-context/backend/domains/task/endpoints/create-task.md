@@ -74,6 +74,16 @@ Requires a valid session; owner is taken from the session, never from the body.
 - createdAt set by the server; list order is by createdAt (BR-026).
 - A failure here is surfaced to the user by rolling the optimistic row back (BR-018, FEAT-PLAT-01).
 
+## Task tags (built, FEAT-TAG-03)
+
+Designed by FEAT-TAG-03 (DEC-260, DEC-262, DEC-259).
+
+- Request: optional `tagIds` (array of tag id strings). Duplicates count once; more than 5 distinct ids is refused as `400` naming `tagIds`; a malformed, unknown or another user's id is the same `400` naming `tagIds` and nothing is created (all or nothing).
+- Response: the created task carries `tags: [ { id, name, colour } ]` (`[]` when none were sent). Checked after `notes`.
+- Stored as `tagIds` on the task (ENT-TASK-01); a task added without tags stores no field.
+- Reads tags (validate `tagIds`, resolve each task's tags) — ../../../../database/entities/tags.md (ENT-TAG-01)
+- The add form sends no `tagIds` (AC-21); the field exists for the picker flows and for clients.
+
 ## Called by
 
 - PAGE-TASK-01 Task List — ../../../../../../../frontend/context/code-context/frontend/pages/task/task-list.md
@@ -87,6 +97,7 @@ Requires a valid session; owner is taken from the session, never from the body.
 
 - FEAT-TASK-01 Task List and Add Task
 - FEAT-PLAT-01 Instant Update with Rollback
+- FEAT-TAG-03 Tag tasks from the task list
 
 ## Integrations
 
@@ -104,8 +115,11 @@ Requires a valid session; owner is taken from the session, never from the body.
 - Data: DATA-004
 - Task: Task-23 Due dates, priority, and list filters (DEC-210, DEC-211, DEC-214, DEC-215)
 - Task: Task-24 Task notes (DEC-240)
-- Code: src/routes/tasks.ts:52
-- Code: src/services/tasks.ts:177
+- Requirement: task-tags — FEAT-TAG-03 (DEC-259 to DEC-263; built)
+- Code: src/routes/tasks.ts:54
+- Code: src/services/tasks.ts:185
+- Code: src/lib/tagIds.ts
+- Code: src/services/tags.ts (requireOwnedTags, tagsForTasks)
 - Code: src/lib/taskTitle.ts:15
 - Code: src/lib/taskFields.ts:28
 - Code: src/lib/taskNotes.ts
@@ -116,6 +130,10 @@ Requires a valid session; owner is taken from the session, never from the body.
 - Test: tests/unit/taskFields.test.ts
 - Test: tests/unit/taskNotes.test.ts
 - Test: tests/unit/calendarDate.test.ts
+- Test: tests/integration/tasks.tags.integration.test.ts
+- Test: tests/unit/tagIds.test.ts
+- Test: tests/contracts/tasks.list-and-add.contract.test.ts
+- Test map: context/test-map/task-tags.md
 - Test map: context/test-map/due-dates-priority-filters.md
 - Test map: context/test-map/task-notes.md
 - [code › src/routes/tasks.ts:52]

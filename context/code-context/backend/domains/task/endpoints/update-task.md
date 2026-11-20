@@ -77,6 +77,15 @@ Requires a valid session; the task must be owned by the session user.
 - Failure is surfaced by rolling the screen back (BR-018, FEAT-PLAT-01).
 - No edit history or audit trail (out of scope).
 
+## Task tags (built, FEAT-TAG-03)
+
+Designed by FEAT-TAG-03 (DEC-260, DEC-262, DEC-259).
+
+- Request: optional `tagIds`. When sent it replaces the task's tags; `[]` removes them all; leaving it out changes nothing; duplicates count once. A sixth distinct id is `400` naming `tagIds`; a malformed, unknown or another user's id is the same `400` naming `tagIds`, and nothing in the request is saved.
+- A request carrying only `tagIds`, an empty list included, is a valid update. The empty-body message widens to "Provide a title, status, due date, priority, notes or tags" (ASM-045, CON-011, open wording).
+- Response: the task carries `tags: [ { id, name, colour } ]` sorted by name ignoring case, on every update, tags changed or not.
+- The write stays one atomic write filtered by id and owner; `$set` of the full distinct list, so two tabs ticking at once leave one valid list of at most 5, never more (R-12).
+
 ## Called by
 
 - PAGE-TASK-01 Task List — ../../../../../../../frontend/context/code-context/frontend/pages/task/task-list.md
@@ -84,12 +93,14 @@ Requires a valid session; the task must be owned by the session user.
 ## Reads / Writes Entities
 
 - Reads/Writes tasks — ../../../../database/entities/tasks.md (ENT-TASK-01)
+- Reads tags (validate `tagIds`, resolve each task's tags) — ../../../../database/entities/tags.md (ENT-TAG-01)
 - Reads sessions (via requireSession) — ../../../../database/entities/sessions.md (ENT-AUTH-02)
 
 ## Used by Features
 
 - FEAT-TASK-02 Edit and Complete Task
 - FEAT-PLAT-01 Instant Update with Rollback
+- FEAT-TAG-03 Tag tasks from the task list
 
 ## Integrations
 
@@ -107,9 +118,12 @@ Requires a valid session; the task must be owned by the session user.
 - Data: DATA-004
 - Task: Task-23 Due dates, priority, and list filters (DEC-210, DEC-211, DEC-214)
 - Task: Task-24 Task notes (DEC-240, DEC-241)
-- Code: src/routes/tasks.ts:58
-- Code: src/services/tasks.ts:208
+- Requirement: task-tags — FEAT-TAG-03 (DEC-259 to DEC-263; built)
+- Code: src/routes/tasks.ts:60
+- Code: src/services/tasks.ts:223
 - Code: src/lib/taskUpdate.ts:17
+- Code: src/lib/tagIds.ts
+- Code: src/services/tags.ts (requireOwnedTags, tagsForTasks)
 - Code: src/lib/taskFields.ts:28
 - Code: src/lib/taskNotes.ts
 - Test: tests/integration/tasks.update.integration.test.ts
@@ -117,6 +131,10 @@ Requires a valid session; the task must be owned by the session user.
 - Test: tests/unit/taskUpdate.test.ts
 - Test: tests/unit/taskNotes.test.ts
 - Test: tests/contracts/tasks.update.contract.test.ts
+- Test: tests/integration/tasks.tags.integration.test.ts
+- Test: tests/integration/tasks.tags.concurrency.integration.test.ts
+- Test: tests/unit/tagIds.test.ts
+- Test map: context/test-map/task-tags.md
 - Test map: context/test-map/due-dates-priority-filters.md
 - Test map: context/test-map/task-notes.md
 - [code › src/routes/tasks.ts:58]

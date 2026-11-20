@@ -67,6 +67,10 @@ Server-side session store backing the HttpOnly session cookie (design assumption
 - EP-TASK-02 POST /api/tasks — ../../backend/domains/task/endpoints/create-task.md
 - EP-TASK-03 PATCH /api/tasks/:id — ../../backend/domains/task/endpoints/update-task.md
 - EP-TASK-04 DELETE /api/tasks/:id — ../../backend/domains/task/endpoints/delete-task.md
+- EP-TAG-01 GET /api/tags — ../../backend/domains/tag/endpoints/list-tags.md
+- EP-TAG-02 POST /api/tags — ../../backend/domains/tag/endpoints/create-tag.md
+- EP-TAG-03 PATCH /api/tags/:id — ../../backend/domains/tag/endpoints/update-tag.md
+- EP-TAG-04 DELETE /api/tags/:id — ../../backend/domains/tag/endpoints/delete-tag.md
 
 ## Used by Features
 
