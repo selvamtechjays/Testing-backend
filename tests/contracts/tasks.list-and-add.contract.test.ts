@@ -65,3 +65,24 @@ describe('contract: POST /api/tasks with notes (EP-TASK-02, Task-24)', () => {
     expectMatchesSchema(unauthenticatedSchema, res.body);
   });
 });
+
+describe('contract: POST /api/tasks with tag ids (EP-TASK-02, Task-29)', () => {
+  it('refuses a caller with no session using the 401 envelope, even with tag ids in the body', async () => {
+    for (const tagIds of [['0123456789abcdef01234567'], [], ['nope'], 'x']) {
+      const res = await request(createTestApp())
+        .post('/api/tasks')
+        .send({ title: 'x', tagIds })
+        .expect(401);
+      expectMatchesSchema(unauthenticatedSchema, res.body);
+    }
+  });
+});
+
+describe('contract: GET /api/tasks with a tag filter (EP-TASK-01, Task-31)', () => {
+  it('refuses a caller with no session using the 401 envelope, whatever the tag is', async () => {
+    for (const query of ['tag=none', 'tag=0123456789abcdef01234567', 'tag=nope', 'tag=a&tag=b']) {
+      const res = await request(createTestApp()).get(`/api/tasks?${query}`).expect(401);
+      expectMatchesSchema(unauthenticatedSchema, res.body);
+    }
+  });
+});

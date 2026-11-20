@@ -52,3 +52,29 @@ describe('the task model notes rule (AC-1, AC-3)', () => {
     expect(Object.keys(error?.errors ?? {})).toEqual(['notes']);
   });
 });
+
+describe('the task model tag link (Task-25, AC-3)', () => {
+  it('accepts a task with no tagIds, and stores no default for the field', () => {
+    const task = build();
+    expect(task.validateSync()).toBeUndefined();
+    expect(task.tagIds).toBeUndefined();
+    expect(task.toObject()).not.toHaveProperty('tagIds');
+  });
+
+  it('accepts a list of tag ids', () => {
+    const task = new Task({
+      ownerId: new Types.ObjectId(),
+      title: 'pay rent',
+      tagIds: [new Types.ObjectId(), new Types.ObjectId()],
+      createdAt: NOW,
+      updatedAt: NOW,
+    });
+    expect(task.validateSync()).toBeUndefined();
+    expect(task.tagIds).toHaveLength(2);
+  });
+
+  it('declares the multikey index on the owner and the tag ids', () => {
+    const index = Task.schema.indexes().find(([fields]) => 'tagIds' in fields);
+    expect(index?.[0]).toEqual({ ownerId: 1, tagIds: 1 });
+  });
+});

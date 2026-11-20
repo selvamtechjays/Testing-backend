@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { parseBody } from '../../src/lib/parseBody.js';
 import {
   LIST_QUERY_MESSAGES,
+  LIST_QUERY_SINGLE_MESSAGES,
   SEARCH_MAX,
   SEARCH_MESSAGES,
   listQuerySchema,
@@ -162,5 +163,67 @@ describe('task list filter query rule (EP-TASK-01, Task-23)', () => {
 
   it('accepts the none filter without today (AC-8)', () => {
     expect(parseBody(listQuerySchema, { due: 'none' })).toEqual({ due: 'none' });
+  });
+});
+
+describe('task list tag query rule (EP-TASK-01, Task-31, FEAT-TAG-04)', () => {
+  const tagId = '0123456789abcdef01234567';
+
+  it('leaves the tag unset when the key is missing', () => {
+    expect(parseBody(listQuerySchema, {}).tag).toBeUndefined();
+  });
+
+  it('accepts none and a 24-hex tag id (AC-1, AC-2, AC-12)', () => {
+    expect(parseBody(listQuerySchema, { tag: 'none' }).tag).toBe('none');
+    expect(parseBody(listQuerySchema, { tag: tagId }).tag).toBe(tagId);
+    expect(parseBody(listQuerySchema, { tag: tagId.toUpperCase() }).tag).toBe(tagId.toUpperCase());
+  });
+
+  it('refuses a malformed tag value, naming tag with the one tag message (AC-12)', () => {
+    for (const tag of [
+      '',
+      'None',
+      'all',
+      '123',
+      tagId + '0',
+      tagId.slice(1),
+      'g'.repeat(24),
+      { a: 1 },
+      5,
+      '  ',
+    ]) {
+      expect(refusedKeys({ tag }), JSON.stringify(tag)).toEqual({
+        tag: 'Tag must be none or one of your own tags.',
+      });
+    }
+  });
+
+  it('refuses a repeated tag key under its own name with the single-value message (AC-13)', () => {
+    for (const tag of [[tagId, tagId], ['none']]) {
+      const keys = refusedKeys({ tag });
+      expect(Object.keys(keys), JSON.stringify(tag)).toEqual(['tag']);
+      expect(keys.tag).toBe(LIST_QUERY_SINGLE_MESSAGES.tag);
+    }
+  });
+
+  it('shares the tag messages with the service, and combines with every other key (AC-3)', () => {
+    expect(LIST_QUERY_MESSAGES.tag).toBe('Tag must be none or one of your own tags.');
+    const query = {
+      tag: tagId,
+      search: 'plan',
+      status: 'pending',
+      priority: 'high',
+      due: 'week',
+      sort: 'due',
+      today: '2026-11-16',
+    };
+    expect(parseBody(listQuerySchema, query)).toEqual(query);
+  });
+
+  it('reports a refused tag together with another refused key (AC-10)', () => {
+    expect(Object.keys(refusedKeys({ tag: 'nope', status: 'bogus' })).sort()).toEqual([
+      'status',
+      'tag',
+    ]);
   });
 });

@@ -3,6 +3,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { createStaticFrontend } from './middleware/staticFrontend.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createHealthRouter, type HealthDeps } from './routes/health.js';
+import { createTagsRouter } from './routes/tags.js';
 import { createTasksRouter } from './routes/tasks.js';
 
 export const API_PREFIX = '/api';
@@ -33,6 +34,7 @@ export function createApp(deps: AppDeps): Express {
     }),
   );
   app.use(API_PREFIX, createTasksRouter({ clock }));
+  app.use(API_PREFIX, createTagsRouter({ clock }));
   if (deps.frontendDistDir) app.use(createStaticFrontend(deps.frontendDistDir, API_PREFIX));
   app.use(notFoundHandler);
   app.use(errorHandler);

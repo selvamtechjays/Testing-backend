@@ -77,7 +77,9 @@ describe('update body rule (FEAT-TASK-02, BR-1, BR-2, BR-3)', () => {
 
 describe('update body rule for due date and priority (Task-23, AC-3, AC-4)', () => {
   it('names every editable field in the empty-body message (DEC-241)', () => {
-    expect(UPDATE_MESSAGES.empty).toBe('Provide a title, status, due date, priority or notes');
+    expect(UPDATE_MESSAGES.empty).toBe(
+      'Provide a title, status, due date, priority, notes or tags',
+    );
     expect(refusedFields({})).toEqual({ body: UPDATE_MESSAGES.empty });
   });
 
@@ -168,5 +170,45 @@ describe('task id shape', () => {
     expect(TASK_ID_PATTERN.test('0123456789abcdef0123456')).toBe(false);
     expect(TASK_ID_PATTERN.test('0123456789abcdef012345678')).toBe(false);
     expect(TASK_ID_PATTERN.test('not-an-id')).toBe(false);
+  });
+});
+
+describe('update body rule for tags (Task-29, AC-2, AC-3, AC-10, AC-11)', () => {
+  const tagId = (n: number) => n.toString(16).padStart(24, '0');
+
+  it('accepts tag ids alone, and an empty list alone, as a provided field (AC-10, BR-4)', () => {
+    expect(parseBody(updateTaskSchema, { tagIds: [tagId(1)] })).toEqual({ tagIds: [tagId(1)] });
+    expect(parseBody(updateTaskSchema, { tagIds: [] })).toEqual({ tagIds: [] });
+  });
+
+  it('leaves tagIds out of the parsed body when the key is not sent (AC-2)', () => {
+    expect(parseBody(updateTaskSchema, { title: 'x' })).toEqual({ title: 'x' });
+  });
+
+  it('names tags in the empty-body message (DEC-241, BR-4)', () => {
+    expect(UPDATE_MESSAGES.empty).toBe(
+      'Provide a title, status, due date, priority, notes or tags',
+    );
+  });
+
+  it('refuses a sixth distinct tag and a malformed id under tagIds (AC-11, AC-14)', () => {
+    expect(refusedFields({ tagIds: [1, 2, 3, 4, 5, 6].map(tagId) })).toEqual({
+      tagIds: 'A task can have up to 5 tags.',
+    });
+    expect(refusedFields({ title: 'x', tagIds: ['nope'] })).toEqual({
+      tagIds: 'Tags must be your own tags.',
+    });
+  });
+
+  it('accepts all six fields together', () => {
+    const body = {
+      title: 'x',
+      status: 'completed',
+      dueDate: '2026-11-20',
+      priority: 'low',
+      notes: 'Call Ravi',
+      tagIds: [tagId(1), tagId(2)],
+    };
+    expect(parseBody(updateTaskSchema, body)).toEqual(body);
   });
 });
