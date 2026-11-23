@@ -15,7 +15,7 @@ implemented_at: 2026-11-06T13:14:56Z
 implemented_by_commit: 02958850e2c6c6ee5cc798464ba396e43d54cb74
 implemented_by_task: FEAT-AUTH-01-1
 mapped_from: src/routes/auth.ts
-mapped_from_line: 22
+mapped_from_line: 26
 mapped_from_commit: a10b022376d046165ef04f1136deb3f92d38d3ce
 ---
 
@@ -68,6 +68,7 @@ Public (no session). Confidence: Assumed — session mechanism is a TL design as
 - Normalise username to lower case; validate format; reject if a user with that lower-case username exists (BR-027). Uniqueness is enforced by the unique index so concurrent registrations cannot both succeed.
 - Reject password under 8 chars or in a common-password blocklist (BR-003). Blocklist source and size are not specified — OQ-AUTH-01.
 - Hash the password with a slow adaptive hash (bcrypt/argon2; library choice at build, Assumed); never store or log plaintext.
+- Throttled (Task-36, DEC-303, DEC-305): the client address is counted before the body is read or anything is hashed, 5 registrations per hour; the 6th is `429 RATE_LIMITED` with `Retry-After`. The hash runs through a gate (2 at once, 8 queued, then `503 SERVICE_UNAVAILABLE` with `Retry-After: 5`, DEC-304); a throttled or refused request creates no user. State is in process memory, single instance (DEC-307); the address follows `TRUST_PROXY_HOPS` (DEC-306).
 - No separate list is created: each user's single personal list is implicit as the set of tasks the user owns (BR-002; design assumption).
 - Create a session and set the cookie (same as login, see EP-AUTH-02) so the user lands on the task list.
 - No email, verification, CAPTCHA, terms acceptance or invite check (DEC-040, DEC-041; access limiting CLR-035 is unresolved and no check is built).
@@ -100,11 +101,15 @@ Public (no session). Confidence: Assumed — session mechanism is a TL design as
 - Workflow: WF-001
 - Business rules: BR-002, BR-003, BR-027
 - Data: DATA-001 User, DATA-002 Session
-- Code: src/routes/auth.ts:22
+- Code: src/routes/auth.ts:26
 - Test: tests/integration/auth.register.test.ts
+- Test: tests/integration/auth.rate-limit.integration.test.ts
+- Test: tests/contracts/auth.rate-limit.contract.test.ts
+- Test map: context/test-map/maturity-hardening-backend.md
 
 ## Design deviation
 
+- Task-36 added the address-level register limit and the hash gate (`src/auth/authThrottle.ts`, `src/auth/hashGate.ts`; DEC-303 to DEC-305).
 - Password hash is Node `crypto.scrypt` (N=32768, r=8, p=3, per-user salt), as DEC-058 settled; the design text above still says bcrypt/argon2.
 - The common-password blocklist is a bundled subset of about 150 entries of 8+ characters compiled from published top lists (DEC-059); OQ-AUTH-01 stays open for the client to name a fuller list.
 - The 400 body `message` is the shared `parseBody` text "Validation failed" (owned by FEAT-PLAT-01), not the "Check the highlighted fields." wording in the sub-task plan; the per-field `fields` messages are as designed (DEC-073).
