@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { createRequireSession } from '../auth/requireSession.js';
-import { MESSAGES } from '../auth/validation.js';
 import { ApiError } from '../lib/apiError.js';
 import { asRecord } from '../lib/asRecord.js';
+import { ownerOf } from '../lib/ownerOf.js';
 import { parseBody } from '../lib/parseBody.js';
 import { TASK_ID_PATTERN, TASK_NOT_FOUND } from '../lib/taskId.js';
 import { listQuerySchema } from '../lib/taskSearch.js';
 import { dueDateSchema, prioritySchema } from '../lib/taskFields.js';
+import { tagIdsSchema } from '../lib/tagIds.js';
 import { notesSchema } from '../lib/taskNotes.js';
 import { taskTitleSchema } from '../lib/taskTitle.js';
 import { createUpdateTaskSchema } from '../lib/taskUpdate.js';
@@ -25,13 +26,8 @@ function createTaskSchema(now: Date) {
     dueDate: dueDateSchema(now).nullable().optional(),
     priority: prioritySchema.optional(),
     notes: notesSchema,
+    tagIds: tagIdsSchema,
   });
-}
-
-/** The id of the signed-in user, set by the session guard on every request that reaches a handler. */
-function ownerOf(user: { id: string } | undefined): string {
-  if (!user) throw new ApiError(401, 'UNAUTHENTICATED', MESSAGES.notSignedIn);
-  return user.id;
 }
 
 /** The `:id` path parameter. A malformed id is "not found", checked before any body so it cannot probe for valid ids. */

@@ -80,6 +80,15 @@ Requires a valid session; results scoped to the session user (BR-025).
 - Status, priority, due, sort and search all combine, and the owner filter stays first in the match, the aggregation and the overdue count (Task-23 AC-7).
 - A due filter without `today` is refused; the server never decides what "today" is (Task-23 AC-8, DEC-218).
 
+## Task tags (built: `tags` by FEAT-TAG-03, the `tag` filter by FEAT-TAG-04)
+
+Designed by FEAT-TAG-03 and FEAT-TAG-04 (DEC-260 to DEC-263). Both the response `tags` and the `tag` query key below are built.
+
+- Response: every task gains `tags: [ { id, name, colour } ]`, sorted by name ignoring case; a task with none, and every task stored before tags existed, reads as `[]` (`toTaskDto` maps a missing `tagIds`, as it does for `priority` and `notes`). The tags are resolved from the page's task rows with one `$in` lookup against ENT-TAG-01 and an id with no tag is skipped (DEC-262).
+- New query key `tag`: a tag id (only tasks carrying it) or `none` (only tasks with no tags, a missing or empty `tagIds`). Single value only. A malformed, unknown or another user's id is the same `400` naming `tag`; a repeated `tag` key is refused under its own name (DEC-259). It combines (AND) with search, status, priority, due and sort; the owner filter stays first in the match and in the sort aggregation.
+- `overdueCount` is unchanged: it counts every pending overdue task of the owner whatever `tag` is (ASM-049).
+- Search stays title-only; tags are never searched (BR-052).
+
 ## Called by
 
 - PAGE-TASK-01 Task List — ../../../../../../../frontend/context/code-context/frontend/pages/task/task-list.md
@@ -87,11 +96,14 @@ Requires a valid session; results scoped to the session user (BR-025).
 ## Reads / Writes Entities
 
 - Reads tasks — ../../../../database/entities/tasks.md (ENT-TASK-01)
+- Reads tags (validate `tagIds`, resolve each task's tags) — ../../../../database/entities/tags.md (ENT-TAG-01)
 - Reads sessions (via requireSession) — ../../../../database/entities/sessions.md (ENT-AUTH-02)
 
 ## Used by Features
 
 - FEAT-TASK-01 Task List and Add Task
+- FEAT-TAG-03 Tag tasks from the task list
+- FEAT-TAG-04 Filter the task list by tag
 
 ## Integrations
 
@@ -110,14 +122,21 @@ Requires a valid session; results scoped to the session user (BR-025).
 - Task: Task-22 Search tasks by title (DEC-208)
 - Task: Task-23 Due dates, priority, and list filters (DEC-210, DEC-212, DEC-214, DEC-216, DEC-218)
 - Task: Task-24 Task notes (DEC-240, DEC-241)
-- Code: src/routes/tasks.ts:48
-- Code: src/services/tasks.ts:158
-- Code: src/lib/taskSearch.ts:48
+- Requirement: task-tags — FEAT-TAG-03, FEAT-TAG-04 (DEC-259 to DEC-263; built)
+- Code: src/routes/tasks.ts:50
+- Code: src/services/tasks.ts:183
+- Code: src/services/tasks.ts:95 (tag match)
+- Code: src/services/tags.ts (tagsForTasks)
+- Code: src/lib/taskSearch.ts:55
+- Code: src/lib/tagId.ts
 - Test: tests/integration/tasks.list-and-add.integration.test.ts
 - Test: tests/integration/tasks.filters.integration.test.ts
 - Test: tests/integration/tasks.notes.integration.test.ts
 - Test: tests/contracts/tasks.list-and-add.contract.test.ts
 - Test: tests/unit/taskSearch.test.ts
+- Test: tests/integration/tasks.tag-filter.integration.test.ts
+- Test: tests/integration/tasks.tags.integration.test.ts
+- Test map: context/test-map/task-tags.md
 - Test map: context/test-map/due-dates-priority-filters.md
 - Test map: context/test-map/task-notes.md
 - [code › src/routes/tasks.ts:48]

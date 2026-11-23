@@ -39,3 +39,16 @@ describe('contract: PATCH /api/tasks/:id with notes (EP-TASK-03, Task-24)', () =
     }
   });
 });
+
+describe('contract: PATCH /api/tasks/:id with tag ids (EP-TASK-03, Task-29)', () => {
+  it('refuses a caller with no session using the 401 envelope, even with tag ids in the body', async () => {
+    const good = '0123456789abcdef01234567';
+    for (const body of [{ tagIds: [good] }, { tagIds: [] }, { tagIds: ['nope'] }, { tagIds: 5 }]) {
+      const res = await request(createTestApp())
+        .patch('/api/tasks/0123456789abcdef01234567')
+        .send(body)
+        .expect(401);
+      expectMatchesSchema(unauthenticatedSchema, res.body);
+    }
+  });
+});

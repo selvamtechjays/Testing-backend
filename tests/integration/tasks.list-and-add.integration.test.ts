@@ -163,7 +163,7 @@ describe('list and add tasks against a real database (FEAT-TASK-01)', () => {
       priority: 'high',
     }).expect(201);
     expect(Object.keys(res.body.task).sort()).toEqual(
-      ['createdAt', 'dueDate', 'id', 'notes', 'priority', 'status', 'title'].sort(),
+      ['createdAt', 'dueDate', 'id', 'notes', 'priority', 'status', 'tags', 'title'].sort(),
     );
     expect(res.body.task.notes).toBeNull();
     const raw = await Task.collection.findOne({

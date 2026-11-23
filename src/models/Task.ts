@@ -21,6 +21,8 @@ export interface TaskDoc {
   priority?: TaskPriority;
   /** Absent when the task has no notes: a clear removes the field, it never stores an empty string (DEC-240). */
   notes?: string;
+  /** Ids of the owner's tags on this task. Absent on rows from before tags existed; readers map it to none. */
+  tagIds?: Types.ObjectId[];
   createdAt: Date;
   /** Set from the injected clock by the service on every create and change; never read by the API. */
   updatedAt: Date;
@@ -41,6 +43,8 @@ const taskSchema = new Schema<TaskDoc>(
     priority: { type: String, enum: PRIORITIES, default: 'medium' },
     // Optional with no default, so a task added without notes stores no field and old rows need no backfill.
     notes: { type: String, maxlength: NOTES_MAX },
+    // Optional with no default (Mongoose would otherwise store `[]`), so old rows and tasks without tags need no backfill.
+    tagIds: { type: [Schema.Types.ObjectId], ref: 'Tag', default: undefined },
     createdAt: { type: Date, required: true },
     updatedAt: { type: Date, required: true },
   },
@@ -49,5 +53,7 @@ const taskSchema = new Schema<TaskDoc>(
 
 // Serves the per-user newest-first read (DEC-052).
 taskSchema.index({ ownerId: 1, createdAt: -1 });
+// Serves the per-tag task count and the tag filter.
+taskSchema.index({ ownerId: 1, tagIds: 1 });
 
 export const Task = model<TaskDoc>('Task', taskSchema);
