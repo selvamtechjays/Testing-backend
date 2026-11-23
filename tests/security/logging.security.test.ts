@@ -7,9 +7,9 @@ import { createErrorApp } from '../support/errorApp.js';
 import { createTestApp } from '../support/createTestApp.js';
 import { createLogLines } from '../support/logLines.js';
 
-const PASSWORD = 'Sup3r-Secret-Passphrase';
-const SESSION_TOKEN = 'abcdef0123456789session-token';
-const BEARER = 'bearer-token-value-777';
+const PASSWORD = 'not a real password but quite long';
+const SESSION_TOKEN = 'fake session token for the test';
+const BEARER = 'fake bearer value for the test';
 
 describe('security: logs never carry passwords, tokens or cookies (AC-6, DEC-309)', () => {
   it('writes none of them for requests that carry them in the body, cookie, authorization header and query', async () => {
