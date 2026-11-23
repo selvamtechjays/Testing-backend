@@ -109,10 +109,27 @@ describe('built frontend served beside the API (FEAT-PLAT-03, AC-1)', () => {
   });
 });
 
-describe('proxy trust (FEAT-PLAT-03, AC-1)', () => {
-  it('trusts one proxy hop when enabled', () => {
-    const app = createApp({ isDbConnected: () => true, trustProxy: true });
-    expect(app.get('trust proxy')).toBe(1);
+describe('proxy trust (FEAT-PLAT-03, AC-1; DEC-306)', () => {
+  it('trusts the configured number of proxy hops', () => {
+    const app = createApp({ isDbConnected: () => true, trustProxyHops: 2 });
+    expect(app.get('trust proxy')).toBe(2);
+  });
+
+  it('defaults to one hop in production and none otherwise, and takes an explicit count', () => {
+    expect(loadConfig({ NODE_ENV: 'production' }).trustProxyHops).toBe(1);
+    expect(loadConfig({}).trustProxyHops).toBe(0);
+    expect(loadConfig({ NODE_ENV: 'production', TRUST_PROXY_HOPS: '2' }).trustProxyHops).toBe(2);
+    expect(loadConfig({ TRUST_PROXY_HOPS: '0' }).trustProxyHops).toBe(0);
+  });
+
+  it.each(['-1', '1.5', 'two', ' ', '0x1'])('refuses TRUST_PROXY_HOPS=%s', (value) => {
+    expect(() => loadConfig({ TRUST_PROXY_HOPS: value })).toThrow(/TRUST_PROXY_HOPS/);
+  });
+
+  it('defaults LOG_LEVEL to info, accepts a known level and refuses an unknown one', () => {
+    expect(loadConfig({}).logLevel).toBe('info');
+    expect(loadConfig({ LOG_LEVEL: 'debug' }).logLevel).toBe('debug');
+    expect(() => loadConfig({ LOG_LEVEL: 'loud' })).toThrow(/LOG_LEVEL/);
   });
 
   it('does not trust a proxy by default', () => {

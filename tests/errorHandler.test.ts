@@ -1,8 +1,12 @@
+// tier: unit
+// requires: nothing external (supertest against an in-process app; no DB, no network)
 import request from 'supertest';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { ApiError } from '../src/lib/apiError.js';
+import { createLogger } from '../src/lib/logger.js';
 import { HttpError } from '../src/middleware/errorHandler.js';
 import { createErrorApp } from './support/errorApp.js';
+import { createLogLines } from './support/logLines.js';
 
 function appThrowing(err: unknown, limit?: string) {
   return createErrorApp(() => {
@@ -90,18 +94,40 @@ describe('errorHandler envelope (BR-3, AC-8)', () => {
     expect(res.text).not.toContain('ECONNREFUSED');
   });
 
-  it('maps any other error to a generic 500 and logs the original', async () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  it('maps any other error to a generic 500 and logs its stack with the request id (AC-6)', async () => {
+    const lines = createLogLines();
     const original = new Error('E11000 duplicate key in collection tasks');
-    const res = await request(appThrowing(original)).post('/api/boom');
+    const app = createErrorApp(
+      () => {
+        throw original;
+      },
+      undefined,
+      createLogger('info', lines.stream),
+    );
+    const res = await request(app).post('/api/boom').set('X-Request-Id', 'req-500-abc');
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ error: { code: 'INTERNAL', message: 'Something went wrong' } });
     expect(res.text).not.toContain('tasks');
-    expect(spy).toHaveBeenCalledWith(original);
+    expect(res.headers['x-request-id']).toBe('req-500-abc');
+    const [line] = lines.parsed();
+    expect(line.level).toBe(50);
+    expect(line.requestId).toBe('req-500-abc');
+    expect(line.err?.message).toBe(original.message);
+    expect(line.err?.stack).toContain('Error: E11000');
+  });
+
+  it('sends Retry-After for an error that carries one and none otherwise (DEC-305)', async () => {
+    const retry = new ApiError(429, 'RATE_LIMITED', 'Too many attempts.').withRetryAfter(42);
+    const limited = await request(appThrowing(retry)).post('/api/boom');
+    expect(limited.status).toBe(429);
+    expect(limited.headers['retry-after']).toBe('42');
+    const plain = await request(appThrowing(new ApiError(404, 'NOT_FOUND', 'Nope'))).post(
+      '/api/boom',
+    );
+    expect(plain.headers['retry-after']).toBeUndefined();
   });
 
   it('has exactly one top-level key and never exposes internals', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await request(appThrowing(new Error('secret detail'))).post('/api/boom');
     expect(Object.keys(res.body)).toEqual(['error']);
     expect(res.text).not.toContain('secret detail');

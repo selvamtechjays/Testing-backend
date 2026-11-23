@@ -1,5 +1,7 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ApiError } from '../lib/apiError.js';
+import type { Logger } from '../lib/logger.js';
+import { REQUEST_ID_HEADER } from './requestId.js';
 
 /** Kept so scaffold callers still compile; new code uses ApiError. */
 export { ApiError as HttpError };
@@ -36,22 +38,30 @@ function toApiError(err: unknown): ApiError | undefined {
   return undefined;
 }
 
-/** The one place errors become HTTP responses: `{ error: { code, message, fields? } }`. Internals never leak. */
-export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
-  if (res.headersSent) {
-    next(err);
-    return;
-  }
-  const known = toApiError(err);
-  if (known) {
-    const error: { code: string; message: string; fields?: Record<string, string> } = {
-      code: known.code,
-      message: known.message,
-    };
-    if (known.fields) error.fields = known.fields;
-    res.status(known.status).json({ error });
-    return;
-  }
-  console.error(err);
-  res.status(500).json({ error: { code: 'INTERNAL', message: 'Something went wrong' } });
-};
+/**
+ * The one place errors become HTTP responses: `{ error: { code, message, fields? } }`. Internals never leak;
+ * an unexpected error is logged with its stack and the request id instead.
+ */
+export function createErrorHandler(logger: Logger): ErrorRequestHandler {
+  return (err, _req, res, next) => {
+    if (res.headersSent) {
+      next(err);
+      return;
+    }
+    const known = toApiError(err);
+    if (known) {
+      const error: { code: string; message: string; fields?: Record<string, string> } = {
+        code: known.code,
+        message: known.message,
+      };
+      if (known.fields) error.fields = known.fields;
+      if (known.retryAfterSeconds !== undefined) {
+        res.setHeader('Retry-After', String(known.retryAfterSeconds));
+      }
+      res.status(known.status).json({ error });
+      return;
+    }
+    logger.error({ err, requestId: res.getHeader(REQUEST_ID_HEADER) }, 'Unhandled error');
+    res.status(500).json({ error: { code: 'INTERNAL', message: 'Something went wrong' } });
+  };
+}

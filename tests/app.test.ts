@@ -25,6 +25,8 @@ describe('loadConfig', () => {
       port: 4000,
       mongodbUri: 'mongodb://localhost:27017/testing-delivery-os',
       nodeEnv: 'development',
+      logLevel: 'info',
+      trustProxyHops: 0,
     });
   });
 

@@ -9,6 +9,8 @@ import { Session } from '../../src/models/Session.js';
 import { User } from '../../src/models/User.js';
 import { expectMatchesSchema } from '../support/contract.js';
 import { createTestApp } from '../support/createTestApp.js';
+import { createLogger } from '../../src/lib/logger.js';
+import { createLogLines } from '../support/logLines.js';
 import {
   registerRequest,
   registerSuccessSchema,
@@ -184,13 +186,19 @@ describe('POST /api/auth/register against a real database', () => {
   );
 
   it('keeps the user but answers a generic 500 with no cookie when the session insert fails (DEC-073)', async () => {
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // The error handler logs through the injected logger (pino), so capture what it writes.
+    const lines = createLogLines();
     vi.spyOn(Session, 'create').mockRejectedValue(new Error('session store down'));
-    const res = await register(registerRequest);
+    const res = await register(
+      registerRequest,
+      createTestApp({ logger: createLogger('info', lines.stream) }),
+    );
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ error: { code: 'INTERNAL', message: 'Something went wrong' } });
     expect(res.headers['set-cookie']).toBeUndefined();
-    expect(JSON.stringify(logged.mock.calls)).not.toContain(registerRequest.password);
+    // The failure was logged (so the check below is not vacuous), and never with the password.
+    expect(lines.raw()).toContain('session store down');
+    expect(lines.raw()).not.toContain(registerRequest.password);
     expect(await counts()).toEqual({ users: 1, sessions: 0 });
   });
 

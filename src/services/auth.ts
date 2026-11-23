@@ -1,3 +1,4 @@
+import type { HashGate } from '../auth/hashGate.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { createSession, hashSessionId } from '../auth/sessions.js';
 import { MESSAGES, type LoginInput, type RegisterInput } from '../auth/validation.js';
@@ -21,8 +22,12 @@ function isDuplicateKey(err: unknown): boolean {
  * (no look-up first), so concurrent requests for one name create exactly one user. If the session
  * insert fails the user remains and the error propagates as a generic 500 (DEC-073).
  */
-export async function registerUser(input: RegisterInput, now: Date): Promise<RegisteredUser> {
-  const passwordHash = await hashPassword(input.password);
+export async function registerUser(
+  input: RegisterInput,
+  now: Date,
+  gate: HashGate,
+): Promise<RegisteredUser> {
+  const passwordHash = await hashPassword(input.password, gate);
   let created;
   try {
     created = await User.create({ username: input.username, passwordHash, createdAt: now });
@@ -46,9 +51,17 @@ const DUMMY_PASSWORD_HASH = `scrypt$32768$8$3$${'00'.repeat(16)}$${'ab'.repeat(6
  * Signs a user in. Unknown username and wrong password are indistinguishable: same error, and a scrypt
  * comparison always runs. Every success creates a fresh session; existing sessions stay valid.
  */
-export async function loginUser(input: LoginInput, now: Date): Promise<RegisteredUser> {
+export async function loginUser(
+  input: LoginInput,
+  now: Date,
+  gate: HashGate,
+): Promise<RegisteredUser> {
   const user = await User.findOne({ username: input.username }).lean();
-  const matches = await verifyPassword(input.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  const matches = await verifyPassword(
+    input.password,
+    user?.passwordHash ?? DUMMY_PASSWORD_HASH,
+    gate,
+  );
   if (!user || !matches) {
     throw new ApiError(401, 'INVALID_CREDENTIALS', MESSAGES.invalidCredentials);
   }
